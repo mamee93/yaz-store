@@ -19,7 +19,7 @@ export async function NotificationsDropdown() {
     <div className="group relative">
       <button
         type="button"
-        className="relative inline-flex size-10 items-center justify-center rounded-oud border border-oud-brown/10 bg-white text-oud-brown transition hover:bg-oud-beige/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oud-gold/50"
+        className="relative inline-flex size-9 items-center justify-center rounded-oud border border-oud-brown/10 bg-white text-oud-brown transition hover:bg-oud-beige/35 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-oud-gold/50 md:size-10"
         aria-label="تنبيهات الإدارة"
       >
         <Bell className="size-4" aria-hidden="true" />

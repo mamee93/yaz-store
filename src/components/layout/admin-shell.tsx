@@ -5,6 +5,7 @@ import {
   BellRing,
   ChartNoAxesColumnIncreasing,
   ClipboardList,
+  ExternalLink,
   FolderTree,
   Image as ImageIcon,
   LayoutDashboard,
@@ -75,18 +76,25 @@ export function AdminShell({
 
       <div className="w-full min-w-0 max-w-full lg:pr-[260px]">
         <header className="sticky top-0 z-30 border-b border-oud-brown/10 bg-oud-pearl/90 backdrop-blur-xl">
-          <div className="flex min-h-16 w-full min-w-0 flex-col gap-3 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 md:px-6">
+          <div className="flex min-h-14 w-full min-w-0 items-center justify-between gap-2 px-3 py-2 sm:px-4 md:min-h-16 md:gap-3 md:px-6 md:py-3">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-oud-brown">إدارة عود ياز</p>
-              <p className="text-xs text-oud-muted">واجهة تشغيل ثابتة للعرض فقط</p>
+              <p className="truncate text-sm font-bold leading-5 text-oud-brown">
+                إدارة عود ياز
+              </p>
+              <p className="text-xs leading-4 text-oud-muted">
+                <span className="md:hidden">لوحة الإدارة</span>
+                <span className="hidden md:inline">واجهة تشغيل ثابتة للعرض فقط</span>
+              </p>
             </div>
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
               <NotificationsDropdown />
               <Link
                 href="/"
-                className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-oud border border-oud-brown/10 bg-white px-4 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/35"
+                className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-oud border border-oud-brown/10 bg-white px-2.5 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/35 md:h-10 md:px-4"
+                aria-label="عرض المتجر"
               >
-                عرض المتجر
+                <ExternalLink className="size-4" aria-hidden="true" />
+                <span className="hidden md:inline">عرض المتجر</span>
               </Link>
               <LogoutButton />
             </div>
