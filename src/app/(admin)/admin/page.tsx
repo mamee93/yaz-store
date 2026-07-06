@@ -1,40 +1,17 @@
-import { Boxes, ClipboardList, TrendingUp, WalletCards } from "lucide-react";
 import { AdminQuickActions } from "@/components/admin/admin-quick-actions";
-import { DashboardStatCard } from "@/components/admin/dashboard-stat-card";
-import { LowStockTable } from "@/components/admin/low-stock-table";
-import { RecentOrdersTable } from "@/components/admin/recent-orders-table";
+import { CouponPerformanceCard } from "@/components/admin/coupon-performance-card";
+import { DashboardKpiCards } from "@/components/admin/dashboard-kpi-cards";
+import { LowStockCard } from "@/components/admin/low-stock-card";
+import { OrdersStatusChart } from "@/components/admin/orders-status-chart";
+import { RecentOrdersCard } from "@/components/admin/recent-orders-card";
+import { SalesChart } from "@/components/admin/sales-chart";
+import { TopCustomersCard } from "@/components/admin/top-customers-card";
+import { TopProductsCard } from "@/components/admin/top-products-card";
+import { getDashboardAnalytics } from "@/features/analytics/queries";
 
-const dashboardStats = [
-  {
-    title: "طلبات اليوم",
-    value: "12",
-    description: "طلبات جديدة بانتظار المتابعة.",
-    icon: ClipboardList
-  },
-  {
-    title: "الطلبات المعلقة",
-    value: "7",
-    description: "تحتاج تأكيد أو مراجعة دفع.",
-    icon: WalletCards,
-    tone: "warning" as const
-  },
-  {
-    title: "مبيعات الشهر",
-    value: "1,248 OMR",
-    description: "إجمالي ثابت للعرض فقط.",
-    icon: TrendingUp,
-    tone: "success" as const
-  },
-  {
-    title: "منتجات منخفضة المخزون",
-    value: "3",
-    description: "منتجات وصلت إلى حد التنبيه.",
-    icon: Boxes,
-    tone: "warning" as const
-  }
-];
+export default async function AdminDashboardPage() {
+  const analytics = await getDashboardAnalytics();
 
-export default function AdminDashboardPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
@@ -43,21 +20,40 @@ export default function AdminDashboardPage() {
           نظرة عامة على المتجر
         </h1>
         <p className="max-w-2xl text-sm leading-7 text-oud-muted">
-          واجهة ثابتة لمتابعة الطلبات، المبيعات، المخزون، والإجراءات اليومية.
+          مؤشرات تشغيلية حقيقية للطلبات، الإيرادات، العملاء، المنتجات، المخزون، والكوبونات.
         </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {dashboardStats.map((stat) => (
-          <DashboardStatCard key={stat.title} {...stat} />
-        ))}
+      <DashboardKpiCards kpis={analytics.kpis} />
+
+      <div className="grid gap-6 xl:grid-cols-[1.4fr_0.6fr]">
+        <SalesChart
+          title="مبيعات آخر 7 أيام"
+          description="الإيرادات اليومية باستثناء الطلبات الملغاة"
+          points={analytics.sales7Days}
+        />
+        <OrdersStatusChart statusCounts={analytics.statusCounts} />
       </div>
 
-      <AdminQuickActions />
+      <SalesChart
+        title="اتجاه المبيعات آخر 30 يوم"
+        description="نظرة شهرية مبسطة بدون مكتبات رسوم خارجية"
+        points={analytics.sales30Days}
+      />
 
-      <div className="grid gap-6 xl:grid-cols-[1.25fr_0.75fr]">
-        <RecentOrdersTable />
-        <LowStockTable />
+      <div className="grid gap-6 xl:grid-cols-2">
+        <TopProductsCard products={analytics.topProducts} />
+        <TopCustomersCard customers={analytics.topCustomers} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
+        <RecentOrdersCard orders={analytics.recentOrders} />
+        <LowStockCard products={analytics.lowStockProducts} />
+      </div>
+
+      <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
+        <CouponPerformanceCard coupons={analytics.couponPerformance} />
+        <AdminQuickActions />
       </div>
     </div>
   );

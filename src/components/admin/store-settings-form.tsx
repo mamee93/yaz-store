@@ -9,7 +9,12 @@ type StoreSettingsFormProps = {
 
 export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
   return (
-    <form action={updateStoreSettingsAction} className="grid gap-5 xl:grid-cols-2" aria-label="إعدادات المتجر">
+    <form
+      action={updateStoreSettingsAction}
+      encType="multipart/form-data"
+      className="grid gap-5 xl:grid-cols-2"
+      aria-label="إعدادات المتجر"
+    >
       <Card className="p-5 shadow-none">
         <h2 className="font-display text-2xl font-bold text-oud-brown">هوية المتجر</h2>
         <div className="mt-5 space-y-4">
@@ -24,8 +29,22 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
             name="store_description"
             defaultValue={settings?.store_description ?? settings?.brand_story_ar ?? ""}
           />
-          <Input label="رابط الشعار" name="logo_url" defaultValue={settings?.logo_url ?? ""} dir="ltr" />
-          <Input label="رابط الأيقونة" name="favicon_url" defaultValue={settings?.favicon_url ?? ""} dir="ltr" />
+          <AssetUploadField
+            title="شعار المتجر"
+            currentUrl={settings?.logo_url ?? null}
+            fileName="logo_file"
+            urlName="logo_url"
+            removeName="remove_logo"
+            maxSizeLabel="2MB"
+          />
+          <AssetUploadField
+            title="أيقونة المتجر"
+            currentUrl={settings?.favicon_url ?? null}
+            fileName="favicon_file"
+            urlName="favicon_url"
+            removeName="remove_favicon"
+            maxSizeLabel="512KB"
+          />
         </div>
       </Card>
 
@@ -123,6 +142,67 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
         </div>
       </Card>
     </form>
+  );
+}
+
+function AssetUploadField({
+  title,
+  currentUrl,
+  fileName,
+  urlName,
+  removeName,
+  maxSizeLabel
+}: {
+  title: string;
+  currentUrl: string | null;
+  fileName: string;
+  urlName: string;
+  removeName: string;
+  maxSizeLabel: string;
+}) {
+  return (
+    <div className="rounded-oud border border-oud-brown/10 bg-oud-beige/25 p-4">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-oud border border-oud-brown/10 bg-white">
+          {currentUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={currentUrl} alt={title} className="h-full w-full object-contain p-2" />
+          ) : (
+            <span className="text-xs font-semibold text-oud-muted">لا توجد صورة</span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1 space-y-3">
+          <div>
+            <p className="text-sm font-semibold text-oud-brown">{title}</p>
+            <p className="mt-1 text-xs leading-5 text-oud-muted">
+              PNG أو JPG أو WEBP أو SVG. الحد الأقصى {maxSizeLabel}.
+            </p>
+          </div>
+          <label className="block space-y-2">
+            <span className="text-sm font-semibold text-oud-brown">رفع من الجهاز</span>
+            <input
+              type="file"
+              name={fileName}
+              accept="image/png,image/jpeg,image/webp,image/svg+xml"
+              className="block w-full rounded-oud border border-oud-brown/15 bg-white px-3 py-2 text-sm text-oud-ink file:me-3 file:rounded-md file:border-0 file:bg-oud-brown file:px-3 file:py-2 file:text-xs file:font-semibold file:text-oud-ivory"
+            />
+          </label>
+          <Input
+            label="رابط يدوي اختياري"
+            name={urlName}
+            defaultValue={currentUrl ?? ""}
+            dir="ltr"
+            placeholder="https://..."
+          />
+          {currentUrl ? (
+            <label className="inline-flex items-center gap-2 rounded-full border border-red-900/15 bg-red-900/10 px-4 py-2 text-xs font-semibold text-red-900">
+              <input type="checkbox" name={removeName} className="size-4 accent-red-900" />
+              إزالة الصورة الحالية
+            </label>
+          ) : null}
+        </div>
+      </div>
+    </div>
   );
 }
 
