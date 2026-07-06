@@ -18,21 +18,23 @@ const supportLinks = [
   { href: "/contact", label: "تواصل معنا" }
 ];
 
-export function SiteFooter() {
+export function SiteFooter({ storeName, description }: { storeName?: string; description?: string | null }) {
+  const displayName = storeName ?? siteConfig.name;
+
   return (
     <footer className="mt-20 bg-oud-brown text-oud-ivory">
       <Container className="py-10 md:py-14">
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="space-y-4">
-            <Link href="/" className="inline-flex items-center gap-3" aria-label="عود ياز">
+            <Link href="/" className="inline-flex items-center gap-3" aria-label={displayName}>
               <span className="grid size-11 place-items-center rounded-oud border border-oud-gold/45 bg-oud-coffee font-display text-lg font-bold text-oud-gold">
                 ع
               </span>
-              <span className="font-display text-3xl font-bold">{siteConfig.name}</span>
+              <span className="font-display text-3xl font-bold">{displayName}</span>
             </Link>
             <p className="max-w-sm text-sm leading-7 text-oud-beige">
-              متجر عربي فاخر للعود والبخور والعطور والمسك وأطقم الهدايا، بتجربة
-              هادئة تليق بذائقة عمان والخليج.
+              {description ??
+                "متجر عربي فاخر للعود والبخور والعطور والمسك وأطقم الهدايا، بتجربة هادئة تليق بذائقة عمان والخليج."}
             </p>
             <div className="flex items-center gap-2">
               <Link
@@ -74,7 +76,7 @@ export function SiteFooter() {
         </div>
 
         <div className="mt-10 border-t border-white/10 pt-6 text-xs text-oud-beige">
-          <p>© {new Date().getFullYear()} عود ياز. جميع الحقوق محفوظة.</p>
+          <p>© {new Date().getFullYear()} {displayName}. جميع الحقوق محفوظة.</p>
         </div>
       </Container>
     </footer>

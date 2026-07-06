@@ -13,10 +13,12 @@ import {
 } from "@/features/coupons/actions";
 import { createCheckoutOrderAction } from "@/features/checkout/actions";
 import type { ShippingZoneRow } from "@/features/shipping/queries";
+import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import { useCart } from "@/hooks/use-cart";
 
 type CheckoutClientProps = {
   shippingZones: ShippingZoneRow[];
+  settings: StoreSettingsRead | null;
 };
 
 const initialCouponState: CouponValidationState = {
@@ -29,7 +31,7 @@ const initialCouponState: CouponValidationState = {
   cartSignature: ""
 };
 
-export function CheckoutClient({ shippingZones }: CheckoutClientProps) {
+export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps) {
   const searchParams = useSearchParams();
   const { isHydrated, items } = useCart();
   const [selectedShippingZoneId, setSelectedShippingZoneId] = useState("");
@@ -45,6 +47,12 @@ export function CheckoutClient({ shippingZones }: CheckoutClientProps) {
     couponState.status === "success" && couponState.cartSignature === cartSignature
       ? couponState
       : initialCouponState;
+  const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
+  const discount = activeCouponState.status === "success" ? activeCouponState.discountAmount : 0;
+  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+  const minimumOrderAmount = settings?.minimum_order_amount ?? 0;
+  const isBelowMinimum = subtotalAfterDiscount < minimumOrderAmount;
+  const canSubmit = Boolean(selectedShippingZoneId) && !isBelowMinimum;
 
   return (
     <main>
@@ -63,7 +71,9 @@ export function CheckoutClient({ shippingZones }: CheckoutClientProps) {
 
       <Section className="pt-2">
         <Container>
-          {hasItems && shippingZones.length > 0 ? (
+          {hasItems && settings?.is_store_open === false ? (
+            <ClosedStoreState message={getEffectiveMaintenanceMessage(settings)} />
+          ) : hasItems && shippingZones.length > 0 ? (
             <div className="grid gap-6 lg:grid-cols-[1fr_24rem] lg:items-start">
               <CheckoutForm
                 action={createCheckoutOrderAction}
@@ -83,18 +93,22 @@ export function CheckoutClient({ shippingZones }: CheckoutClientProps) {
                   couponAction={couponAction}
                   shippingZones={shippingZones}
                   selectedShippingZoneId={selectedShippingZoneId}
+                  settings={settings}
                   isCouponPending={isCouponPending}
                 />
                 <button
                   type="submit"
                   form="checkout-form"
-                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-oud bg-oud-brown px-7 text-sm font-semibold text-oud-ivory shadow-soft transition hover:bg-oud-coffee"
+                  disabled={!canSubmit}
+                  className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-oud bg-oud-brown px-7 text-sm font-semibold text-oud-ivory shadow-soft transition hover:bg-oud-coffee disabled:cursor-not-allowed disabled:bg-oud-brown/45"
                 >
                   <CheckCircle2 className="size-4" aria-hidden="true" />
                   تأكيد الطلب
                 </button>
                 <p className="text-center text-xs leading-6 text-oud-muted">
-                  يتم احتساب الشحن المجاني بعد تطبيق الخصم، ولن يتم خصم المخزون حتى يؤكد فريق عود ياز الطلب.
+                  {isBelowMinimum
+                    ? `الحد الأدنى للطلب هو ${minimumOrderAmount.toFixed(3)} OMR بعد الخصم.`
+                    : "يتم احتساب الشحن المجاني بعد تطبيق الخصم، ولن يتم خصم المخزون حتى يؤكد فريق عود ياز الطلب."}
                 </p>
               </aside>
             </div>
@@ -149,6 +163,32 @@ function UnavailableShippingState() {
         </Link>
       }
     />
+  );
+}
+
+function ClosedStoreState({ message }: { message: string }) {
+  return (
+    <EmptyState
+      title="المتجر مغلق مؤقتا"
+      description={message}
+      icon={<Truck className="size-5" aria-hidden="true" />}
+      action={
+        <Link
+          href="/contact"
+          className="inline-flex h-11 items-center justify-center rounded-oud bg-oud-brown px-6 text-sm font-semibold text-oud-ivory"
+        >
+          تواصل معنا
+        </Link>
+      }
+    />
+  );
+}
+
+function getEffectiveMaintenanceMessage(settings: StoreSettingsRead | null) {
+  return (
+    settings?.maintenance_message ??
+    settings?.maintenance_message_ar ??
+    "المتجر مغلق مؤقتا لاستقبال الطلبات الجديدة."
   );
 }
 

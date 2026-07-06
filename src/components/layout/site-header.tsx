@@ -14,19 +14,20 @@ export const storeNavItems = [
   { href: "/contact", label: "تواصل معنا" }
 ];
 
-export function SiteHeader() {
+export function SiteHeader({ storeName }: { storeName?: string }) {
   const { itemCount } = useCart();
+  const displayName = storeName ?? siteConfig.name;
 
   return (
     <header className="sticky top-0 z-40 border-b border-oud-brown/10 bg-oud-ivory/95 backdrop-blur-xl">
       <div className="container-page flex h-16 items-center justify-between gap-3">
-        <Link href="/" className="group flex items-center gap-3" aria-label="عود ياز">
+        <Link href="/" className="group flex items-center gap-3" aria-label={displayName}>
           <span className="grid size-10 place-items-center rounded-oud border border-oud-gold/35 bg-oud-brown font-display text-lg font-bold text-oud-gold shadow-gold">
             ع
           </span>
           <span className="flex flex-col leading-none">
             <span className="font-display text-2xl font-bold text-oud-brown">
-              {siteConfig.name}
+              {displayName}
             </span>
             <span className="mt-1 hidden text-[11px] font-medium text-oud-muted sm:block">
               Oud Yaz

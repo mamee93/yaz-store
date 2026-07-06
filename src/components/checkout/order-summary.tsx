@@ -3,6 +3,7 @@ import { PackageCheck, TicketPercent, XCircle } from "lucide-react";
 import { Button, Card, Input, Price } from "@/components/ui";
 import type { CouponValidationState } from "@/features/coupons/actions";
 import type { ShippingZoneRow } from "@/features/shipping/queries";
+import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import type { CartItem } from "@/stores/cart-store";
 
 type OrderSummaryProps = {
@@ -11,6 +12,7 @@ type OrderSummaryProps = {
   couponAction: (formData: FormData) => void;
   shippingZones: ShippingZoneRow[];
   selectedShippingZoneId: string;
+  settings: StoreSettingsRead | null;
   isCouponPending?: boolean;
 };
 
@@ -20,6 +22,7 @@ export function OrderSummary({
   couponAction,
   shippingZones,
   selectedShippingZoneId,
+  settings,
   isCouponPending = false
 }: OrderSummaryProps) {
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
@@ -31,7 +34,10 @@ export function OrderSummary({
     selectedZone?.free_shipping_minimum_omr !== undefined &&
     subtotalAfterDiscount >= selectedZone.free_shipping_minimum_omr;
   const shippingFee = selectedZone ? (freeShippingApplies ? 0 : selectedZone.delivery_fee_omr) : 0;
-  const total = subtotalAfterDiscount + shippingFee;
+  const tax = settings?.is_tax_enabled
+    ? Number((subtotalAfterDiscount * (settings.tax_rate / 100)).toFixed(3))
+    : 0;
+  const total = subtotalAfterDiscount + shippingFee + tax;
 
   return (
     <Card className="p-5">
@@ -85,6 +91,15 @@ export function OrderSummary({
         />
         {selectedZone?.estimated_delivery_time ? (
           <SummaryRow label="مدة التوصيل" value={<span>{selectedZone.estimated_delivery_time}</span>} />
+        ) : null}
+        {settings?.is_tax_enabled ? (
+          <SummaryRow label={`الضريبة ${settings.tax_rate}%`} value={<Price value={tax} />} />
+        ) : null}
+        {(settings?.minimum_order_amount ?? 0) > 0 ? (
+          <SummaryRow
+            label="الحد الأدنى للطلب"
+            value={<Price value={settings?.minimum_order_amount ?? 0} />}
+          />
         ) : null}
         <SummaryRow label="الإجمالي" value={<Price value={total} className="text-lg" />} />
       </div>

@@ -194,6 +194,7 @@ export type Database = {
           subtotal_omr: number;
           delivery_fee_omr: number;
           discount_omr: number;
+          tax_omr: number;
           total_omr: number;
           coupon_code: string | null;
           shipping_zone_id: string | null;
@@ -378,6 +379,10 @@ export type Database = {
       store_settings: {
         Row: {
           id: string;
+          store_name: string | null;
+          store_description: string | null;
+          store_email: string | null;
+          store_phone: string | null;
           store_name_ar: string;
           store_name_en: string | null;
           contact_phone: string | null;
@@ -385,6 +390,8 @@ export type Database = {
           support_email: string | null;
           instagram_url: string | null;
           tiktok_url: string | null;
+          logo_url: string | null;
+          favicon_url: string | null;
           snapchat_url: string | null;
           x_url: string | null;
           facebook_url: string | null;
@@ -393,7 +400,14 @@ export type Database = {
           delivery_fee_omr: number;
           free_delivery_threshold_omr: number | null;
           default_currency: string;
+          currency_code: string;
+          currency_symbol: string;
+          tax_rate: number;
+          is_tax_enabled: boolean;
           is_store_open: boolean;
+          maintenance_message: string | null;
+          order_prefix: string;
+          minimum_order_amount: number;
           maintenance_message_ar: string | null;
           maintenance_message_en: string | null;
           brand_story_ar: string | null;

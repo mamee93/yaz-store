@@ -30,6 +30,17 @@ type CheckoutInsertIds = {
   id: string;
 };
 
+type CheckoutStoreSettings = Pick<
+  Database["public"]["Tables"]["store_settings"]["Row"],
+  | "is_store_open"
+  | "maintenance_message"
+  | "maintenance_message_ar"
+  | "minimum_order_amount"
+  | "is_tax_enabled"
+  | "tax_rate"
+  | "order_prefix"
+>;
+
 export async function createCheckoutOrderAction(formData: FormData) {
   const parsed = checkoutSchema.safeParse({
     fullName: formData.get("fullName"),
@@ -56,6 +67,16 @@ export async function createCheckoutOrderAction(formData: FormData) {
   }
 
   const checkout = parsed.data;
+  const settings = await getCheckoutStoreSettings();
+
+  if (!settings.is_store_open) {
+    redirectWithCheckoutError(
+      settings.maintenance_message ??
+        settings.maintenance_message_ar ??
+        "المتجر مغلق مؤقتا ولا يستقبل طلبات جديدة."
+    );
+  }
+
   const requestedItems = checkout.productId.map((productId, index) => ({
     productId,
     quantity: checkout.quantity[index] ?? 1
@@ -115,6 +136,13 @@ export async function createCheckoutOrderAction(formData: FormData) {
 
   const discount = couponResult.discountAmount;
   const subtotalAfterDiscount = roundMoney(Math.max(0, subtotal - discount));
+
+  if (subtotalAfterDiscount < settings.minimum_order_amount) {
+    redirectWithCheckoutError(
+      `الحد الأدنى للطلب هو ${settings.minimum_order_amount.toFixed(3)} OMR.`
+    );
+  }
+
   const shippingResult = await calculateShippingForCheckout({
     shippingZoneId: checkout.shippingZoneId,
     subtotalAfterDiscount
@@ -125,8 +153,11 @@ export async function createCheckoutOrderAction(formData: FormData) {
   }
 
   const shippingFee = roundMoney(shippingResult.shippingFee);
-  const total = roundMoney(subtotalAfterDiscount + shippingFee);
-  const orderNumber = generateOrderNumber();
+  const tax = settings.is_tax_enabled
+    ? roundMoney(subtotalAfterDiscount * (settings.tax_rate / 100))
+    : 0;
+  const total = roundMoney(subtotalAfterDiscount + shippingFee + tax);
+  const orderNumber = generateOrderNumber(settings.order_prefix);
   const addressSnapshot = {
     full_name: checkout.fullName,
     phone: checkout.phone,
@@ -198,6 +229,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
         subtotal_omr: subtotal,
         delivery_fee_omr: shippingFee,
         discount_omr: discount,
+        tax_omr: tax,
         total_omr: total,
         coupon_code: couponResult.code,
         shipping_zone_id: shippingResult.zone?.id ?? null,
@@ -261,6 +293,32 @@ export async function createCheckoutOrderAction(formData: FormData) {
   redirect(`/order-confirmation/${orderNumber}?clearCart=1`);
 }
 
+async function getCheckoutStoreSettings(): Promise<CheckoutStoreSettings> {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("store_settings")
+    .select(
+      "is_store_open,maintenance_message,maintenance_message_ar,minimum_order_amount,is_tax_enabled,tax_rate,order_prefix"
+    )
+    .limit(1)
+    .maybeSingle()
+    .returns<CheckoutStoreSettings | null>();
+
+  if (error || !data) {
+    return {
+      is_store_open: true,
+      maintenance_message: null,
+      maintenance_message_ar: null,
+      minimum_order_amount: 0,
+      is_tax_enabled: false,
+      tax_rate: 0,
+      order_prefix: "OY"
+    };
+  }
+
+  return data;
+}
+
 async function cleanupFailedOrder({
   customerId,
   addressId,
@@ -305,14 +363,14 @@ function getPrimaryProductImageUrl(images: ProductCheckoutRow["product_images"])
   );
 }
 
-function generateOrderNumber() {
+function generateOrderNumber(prefix = "OY") {
   const date = new Date();
   const year = date.getFullYear().toString().slice(-2);
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   const random = Math.floor(1000 + Math.random() * 9000);
 
-  return `OY-${year}${month}${day}-${random}`;
+  return `${prefix}-${year}${month}${day}-${random}`;
 }
 
 function roundMoney(value: number) {
