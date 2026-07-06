@@ -34,7 +34,7 @@ export function Textarea({
         aria-invalid={error ? true : undefined}
         aria-describedby={controlId ? describedBy : undefined}
         className={cn(
-          "w-full resize-y rounded-oud border border-oud-brown/15 bg-oud-pearl px-3 py-3 text-sm leading-7 text-oud-ink",
+          "w-full min-w-0 resize-y rounded-oud border border-oud-brown/15 bg-oud-pearl px-3 py-3 text-sm leading-7 text-oud-ink",
           "placeholder:text-oud-muted/65 transition focus:border-oud-gold focus:bg-white disabled:cursor-not-allowed disabled:bg-oud-beige/35 disabled:text-oud-muted",
           error && "border-red-900/60 focus:border-red-900",
           className

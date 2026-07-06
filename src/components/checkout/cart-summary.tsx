@@ -23,8 +23,8 @@ export function CartSummary({
   const total = subtotal + deliveryFee;
 
   return (
-    <Card className="p-5">
-      <h2 className="font-display text-2xl font-bold text-oud-brown">ملخص الطلب</h2>
+    <Card className="p-4 sm:p-5">
+      <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">ملخص الطلب</h2>
 
       <div className="mt-5 space-y-3 border-y border-oud-brown/10 py-5 text-sm">
         <SummaryRow label="المجموع الفرعي" value={<Price value={subtotal} />} />

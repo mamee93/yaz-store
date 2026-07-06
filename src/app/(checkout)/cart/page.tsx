@@ -27,7 +27,7 @@ export default function CartPage() {
       <Section className="pt-2">
         <Container>
           {isHydrated && items.length > 0 ? (
-            <div className="grid gap-6 lg:grid-cols-[1fr_24rem] lg:items-start">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start xl:gap-6">
               <div className="space-y-3">
                 {items.map((item) => (
                   <CartItem key={item.productId} item={item} />
@@ -39,7 +39,7 @@ export default function CartPage() {
                   متابعة التسوق
                 </Link>
               </div>
-              <div className="lg:sticky lg:top-24">
+              <div className="min-w-0 lg:sticky lg:top-24">
                 <CartSummary items={items} onClear={clearCart} />
               </div>
             </div>

@@ -102,7 +102,7 @@ export function AdminShell({
         </header>
 
         <nav
-          className="max-w-full overflow-hidden border-b border-oud-brown/10 bg-oud-pearl/80 px-3 py-3 sm:px-4 md:px-6 lg:hidden"
+          className="max-w-full overflow-hidden border-b border-oud-brown/10 bg-oud-pearl/80 px-3 py-2 sm:px-4 md:px-6 md:py-3 lg:hidden"
           aria-label="تنقل الإدارة"
         >
           <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
@@ -113,7 +113,7 @@ export function AdminShell({
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-oud-brown/10 bg-white px-4 py-2 text-xs font-semibold text-oud-muted transition hover:bg-oud-beige/35 hover:text-oud-brown"
+                  className="inline-flex h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-oud-brown/10 bg-white px-3 text-xs font-semibold text-oud-muted transition hover:bg-oud-beige/35 hover:text-oud-brown md:px-4"
                 >
                   <Icon className="size-4" aria-hidden="true" />
                   {item.label}

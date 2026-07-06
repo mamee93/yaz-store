@@ -21,7 +21,7 @@ export function CheckoutForm({
   couponCode
 }: CheckoutFormProps) {
   return (
-    <form id="checkout-form" action={action} className="space-y-5" aria-label="نموذج إتمام الطلب">
+    <form id="checkout-form" action={action} className="min-w-0 space-y-5" aria-label="نموذج إتمام الطلب">
       {couponCode ? <input type="hidden" name="couponCode" value={couponCode} /> : null}
       {items.map((item) => (
         <div key={item.productId}>
@@ -30,8 +30,8 @@ export function CheckoutForm({
         </div>
       ))}
 
-      <section className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-5 shadow-soft">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">بيانات العميل</h2>
+      <section className="min-w-0 rounded-oud border border-oud-brown/10 bg-oud-pearl p-4 shadow-soft sm:p-5">
+        <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">بيانات العميل</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Input
             label="الاسم الكامل"
@@ -56,8 +56,8 @@ export function CheckoutForm({
         </div>
       </section>
 
-      <section className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-5 shadow-soft">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">عنوان التوصيل</h2>
+      <section className="min-w-0 rounded-oud border border-oud-brown/10 bg-oud-pearl p-4 shadow-soft sm:p-5">
+        <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">عنوان التوصيل</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Select label="الدولة" name="country" defaultValue="Oman" required>
             <option value="Oman">عمان</option>

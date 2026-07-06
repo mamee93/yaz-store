@@ -42,14 +42,14 @@ export function ProductCard({ product }: ProductCardProps) {
       <div className="space-y-3 p-3 md:p-4">
         <Link href={`/products/${product.slug}`} className="block space-y-1">
           <p className="text-xs font-semibold text-oud-gold">{product.categoryName}</p>
-          <h3 className="line-clamp-2 min-h-12 text-sm font-bold leading-6 text-oud-brown">
+          <h3 className="line-clamp-2 min-h-12 break-words text-sm font-bold leading-6 text-oud-brown">
             {product.name}
           </h3>
         </Link>
         <p className="line-clamp-2 text-xs leading-6 text-oud-muted">
           {product.shortDescription}
         </p>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col">
             <Price value={product.price} className="text-sm" />
             {product.compareAtPrice ? (

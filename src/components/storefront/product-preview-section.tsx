@@ -46,7 +46,7 @@ export function ProductPreviewSection({
           </Link>
         </div>
 
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(10rem,100%),1fr))] gap-3 md:grid-cols-4">
           {products.map((product) => (
             <ProductPreviewCard key={product.href} product={product} />
           ))}
@@ -87,7 +87,7 @@ function ProductPreviewCard({ product }: { product: ProductPreview }) {
         </div>
         <div className="space-y-2 p-3 md:p-4">
           <p className="text-xs font-semibold text-oud-gold">{product.label}</p>
-          <h3 className="line-clamp-2 min-h-12 text-sm font-bold leading-6 text-oud-brown">
+          <h3 className="line-clamp-2 min-h-12 break-words text-sm font-bold leading-6 text-oud-brown">
             {product.name}
           </h3>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

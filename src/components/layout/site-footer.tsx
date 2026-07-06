@@ -33,11 +33,13 @@ export function SiteFooter({
   return (
     <footer className="mt-20 bg-oud-brown text-oud-ivory">
       <Container className="py-10 md:py-14">
-        <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-10">
           <div className="space-y-4">
-            <Link href="/" className="inline-flex items-center gap-3" aria-label={displayName}>
+            <Link href="/" className="inline-flex max-w-full items-center gap-3" aria-label={displayName}>
               <FooterLogoMark logoUrl={logoUrl} storeName={displayName} />
-              <span className="font-display text-3xl font-bold">{displayName}</span>
+              <span className="min-w-0 truncate font-display text-2xl font-bold sm:text-3xl">
+                {displayName}
+              </span>
             </Link>
             <p className="max-w-sm text-sm leading-7 text-oud-beige">
               {description ??
@@ -99,7 +101,7 @@ function FooterLogoMark({
 }) {
   if (logoUrl) {
     return (
-      <span className="grid size-11 place-items-center overflow-hidden rounded-oud border border-oud-gold/45 bg-oud-ivory">
+      <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-oud border border-oud-gold/45 bg-oud-ivory">
         <Image
           src={logoUrl}
           alt={`${storeName} logo`}
@@ -113,7 +115,7 @@ function FooterLogoMark({
   }
 
   return (
-    <span className="grid size-11 place-items-center rounded-oud border border-oud-gold/45 bg-oud-coffee font-display text-lg font-bold text-oud-gold">
+    <span className="grid size-11 shrink-0 place-items-center rounded-oud border border-oud-gold/45 bg-oud-coffee font-display text-lg font-bold text-oud-gold">
       ع
     </span>
   );

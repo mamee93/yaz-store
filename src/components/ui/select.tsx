@@ -26,7 +26,7 @@ export function Select({ className, label, error, hint, id, name, children, ...p
           aria-invalid={error ? true : undefined}
           aria-describedby={controlId ? describedBy : undefined}
           className={cn(
-            "h-11 w-full appearance-none rounded-oud border border-oud-brown/15 bg-oud-pearl py-0 pe-10 ps-3 text-sm text-oud-ink",
+            "h-11 w-full min-w-0 appearance-none rounded-oud border border-oud-brown/15 bg-oud-pearl py-0 pe-10 ps-3 text-sm text-oud-ink",
             "transition focus:border-oud-gold focus:bg-white disabled:cursor-not-allowed disabled:bg-oud-beige/35 disabled:text-oud-muted",
             error && "border-red-900/60 focus:border-red-900",
             className

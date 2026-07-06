@@ -11,13 +11,17 @@
   }
 
   html {
+    width: 100%;
     min-height: 100%;
+    overflow-x: hidden;
     scroll-behavior: smooth;
     -webkit-text-size-adjust: 100%;
   }
 
   body {
+    width: 100%;
     min-height: 100%;
+    overflow-x: hidden;
     background: rgb(var(--color-oud-ivory));
     color: rgb(var(--color-oud-ink));
     font-family: var(--font-arabic-sans);
@@ -38,6 +42,10 @@
   canvas {
     display: block;
     max-width: 100%;
+  }
+
+  table {
+    border-collapse: collapse;
   }
 
   input,
@@ -66,12 +74,12 @@
 
 @layer components {
   .container-page {
-    width: min(100% - 2rem, var(--content-width));
+    width: min(calc(100% - clamp(1rem, 4vw, 2rem)), var(--content-width));
     margin-inline: auto;
   }
 
   .container-narrow {
-    width: min(100% - 2rem, var(--content-width-narrow));
+    width: min(calc(100% - clamp(1rem, 4vw, 2rem)), var(--content-width-narrow));
     margin-inline: auto;
   }
 
@@ -89,5 +97,10 @@
       rgb(var(--color-oud-gold) / 0.65),
       transparent
     );
+  }
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-inline: contain;
   }
 }

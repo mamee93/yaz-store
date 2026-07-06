@@ -53,7 +53,7 @@ export function Button({
     <button
       type={type}
       className={cn(
-        "inline-flex shrink-0 items-center justify-center gap-2 font-semibold transition duration-200",
+        "inline-flex min-w-0 shrink-0 items-center justify-center gap-2 text-center font-semibold transition duration-200",
         "focus-visible:ring-0 disabled:cursor-not-allowed disabled:shadow-none",
         sizeStyles[size],
         variantStyles[variant],

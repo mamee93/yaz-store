@@ -12,9 +12,9 @@ type HeadingProps = HTMLAttributes<HTMLHeadingElement> & {
 };
 
 const titleSizes: Record<HeadingLevel, string> = {
-  1: "text-4xl leading-tight md:text-5xl",
-  2: "text-3xl leading-tight md:text-4xl",
-  3: "text-2xl leading-9",
+  1: "text-3xl leading-tight sm:text-4xl md:text-5xl",
+  2: "text-2xl leading-tight sm:text-3xl md:text-4xl",
+  3: "text-xl leading-8 sm:text-2xl sm:leading-9",
   4: "text-xl leading-8"
 };
 
@@ -44,7 +44,7 @@ export function Heading({
         </p>
       ) : null}
       <Tag
-        className={cn("font-display font-bold", titleSizes[level], toneStyles[tone])}
+        className={cn("max-w-full text-pretty font-display font-bold", titleSizes[level], toneStyles[tone])}
         {...props}
       >
         {children}

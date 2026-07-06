@@ -21,9 +21,9 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
   const address = parseAddressSnapshot(order.delivery_address_snapshot);
 
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_24rem]">
+    <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
       <div className="space-y-5">
-        <Card className="p-5 shadow-none">
+        <Card className="p-4 shadow-none sm:p-5">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-xs text-oud-muted">رقم الطلب</p>
@@ -41,12 +41,12 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
         </Card>
 
         <Card className="overflow-hidden shadow-none">
-          <div className="border-b border-oud-brown/10 p-5">
-            <h2 className="font-display text-2xl font-bold text-oud-brown">المنتجات</h2>
+          <div className="border-b border-oud-brown/10 p-4 sm:p-5">
+            <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">المنتجات</h2>
           </div>
           <div className="divide-y divide-oud-brown/10">
             {order.order_items.map((item) => (
-              <div key={item.id} className="flex items-center justify-between gap-4 p-5">
+              <div key={item.id} className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                 <div className="flex min-w-0 items-center gap-3">
                   <div className="relative size-16 shrink-0 overflow-hidden rounded-oud border border-oud-brown/10 bg-oud-beige/35">
                     {item.product_image_url_snapshot ? (
@@ -68,7 +68,7 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
                     </p>
                   </div>
                 </div>
-                <div className="text-left">
+                <div className="text-left sm:shrink-0">
                   <Price value={item.line_total_omr} />
                   <p className="mt-1 text-xs text-oud-muted">
                     <Price value={item.unit_price_omr} className="text-xs text-oud-muted" /> للقطعة
@@ -79,8 +79,8 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
           </div>
         </Card>
 
-        <Card className="p-5 shadow-none">
-          <h2 className="font-display text-2xl font-bold text-oud-brown">عنوان التوصيل</h2>
+        <Card className="p-4 shadow-none sm:p-5">
+          <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">عنوان التوصيل</h2>
           <div className="mt-4 space-y-2 text-sm leading-7 text-oud-muted">
             <p>{address.country}، {address.governorate}، {address.wilayat}</p>
             {address.area ? <p>{address.area}</p> : null}
@@ -90,16 +90,16 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
         </Card>
 
         {order.customer_notes ? (
-          <Card className="p-5 shadow-none">
-            <h2 className="font-display text-2xl font-bold text-oud-brown">ملاحظات العميل</h2>
+          <Card className="p-4 shadow-none sm:p-5">
+            <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">ملاحظات العميل</h2>
             <p className="mt-4 text-sm leading-7 text-oud-muted">{order.customer_notes}</p>
           </Card>
         ) : null}
       </div>
 
       <aside className="space-y-5">
-        <Card className="p-5 shadow-none">
-          <h2 className="font-display text-2xl font-bold text-oud-brown">العميل</h2>
+        <Card className="p-4 shadow-none sm:p-5">
+          <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">العميل</h2>
           <div className="mt-4 space-y-2 text-sm text-oud-muted">
             <p className="font-semibold text-oud-brown">{order.customer_name_snapshot}</p>
             <p dir="ltr">{order.customer_phone_snapshot}</p>
@@ -107,8 +107,8 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
           </div>
         </Card>
 
-        <Card className="p-5 shadow-none">
-          <h2 className="font-display text-2xl font-bold text-oud-brown">الإجماليات</h2>
+        <Card className="p-4 shadow-none sm:p-5">
+          <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">الإجماليات</h2>
           <div className="mt-4 space-y-3 text-sm">
             <SummaryRow label="المجموع الفرعي" value={<Price value={order.subtotal_omr} />} />
             <SummaryRow label="التوصيل" value={<Price value={order.delivery_fee_omr} />} />
@@ -117,8 +117,8 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
           </div>
         </Card>
 
-        <Card className="p-5 shadow-none">
-          <h2 className="font-display text-2xl font-bold text-oud-brown">إدارة الطلب</h2>
+        <Card className="p-4 shadow-none sm:p-5">
+          <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">إدارة الطلب</h2>
           <form action={updateAction} className="mt-5 space-y-4">
             <OrderStatusSelect defaultValue={order.status} />
             <Textarea

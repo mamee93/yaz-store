@@ -74,7 +74,7 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
           {hasItems && settings?.is_store_open === false ? (
             <ClosedStoreState message={getEffectiveMaintenanceMessage(settings)} />
           ) : hasItems && shippingZones.length > 0 ? (
-            <div className="grid gap-6 lg:grid-cols-[1fr_24rem] lg:items-start">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start xl:gap-6">
               <CheckoutForm
                 action={createCheckoutOrderAction}
                 items={items}
@@ -84,7 +84,7 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
                 couponCode={activeCouponState.code}
               />
 
-              <aside className="space-y-4 lg:sticky lg:top-24">
+              <aside className="min-w-0 space-y-4 lg:sticky lg:top-24">
                 <OrderSummary
                   items={items}
                   couponState={

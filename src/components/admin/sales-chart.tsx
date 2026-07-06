@@ -11,16 +11,16 @@ export function SalesChart({ title, description, points }: SalesChartProps) {
   const maxRevenue = Math.max(...points.map((point) => point.revenue), 0);
 
   return (
-    <Card className="p-5 shadow-none">
+    <Card className="p-4 shadow-none sm:p-5">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="font-display text-2xl font-bold text-oud-brown">{title}</h2>
+          <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">{title}</h2>
           <p className="mt-1 text-xs text-oud-muted">{description}</p>
         </div>
         <Price value={points.reduce((total, point) => total + point.revenue, 0)} />
       </div>
 
-      <div className="mt-6 flex h-56 items-end gap-2 overflow-x-auto pb-2">
+      <div className="mt-6 flex h-52 items-end gap-2 overflow-x-auto pb-2 sm:h-56">
         {points.map((point) => {
           const height = maxRevenue > 0 ? Math.max(8, (point.revenue / maxRevenue) * 100) : 8;
 

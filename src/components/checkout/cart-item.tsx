@@ -14,8 +14,8 @@ export function CartItem({ item }: CartItemProps) {
   const { removeItem, setQuantity } = useCart();
 
   return (
-    <Card className="overflow-hidden p-4">
-      <div className="grid grid-cols-[5.5rem_1fr] gap-4 sm:grid-cols-[6.5rem_1fr_auto]">
+    <Card className="overflow-hidden p-3 sm:p-4">
+      <div className="grid grid-cols-[4.75rem_1fr] gap-3 sm:grid-cols-[6.5rem_1fr_auto] sm:gap-4">
         <div
           className="relative aspect-square overflow-hidden rounded-oud border border-oud-brown/10"
           style={{ background: item.imageTone }}
@@ -32,7 +32,7 @@ export function CartItem({ item }: CartItemProps) {
         </div>
 
         <div className="min-w-0 space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <Badge variant="gold">{item.category}</Badge>
             <Badge variant="soft">{item.sizeLabel}</Badge>
           </div>
@@ -42,7 +42,7 @@ export function CartItem({ item }: CartItemProps) {
           <Price value={item.price} className="text-sm" />
         </div>
 
-        <div className="col-span-2 flex items-center justify-between gap-3 border-t border-oud-brown/10 pt-4 sm:col-span-1 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
+        <div className="col-span-2 flex items-center justify-between gap-3 border-t border-oud-brown/10 pt-3 sm:col-span-1 sm:flex-col sm:items-end sm:border-0 sm:pt-0">
           <div className="inline-flex h-10 items-center rounded-oud border border-oud-brown/10 bg-oud-pearl">
             <button
               type="button"

@@ -29,10 +29,10 @@ export function SiteHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-oud-brown/10 bg-oud-ivory/95 backdrop-blur-xl">
       <div className="container-page flex h-16 items-center justify-between gap-3">
-        <Link href="/" className="group flex items-center gap-3" aria-label={displayName}>
+        <Link href="/" className="group flex min-w-0 items-center gap-2 sm:gap-3" aria-label={displayName}>
           <LogoMark logoUrl={normalizedLogoUrl} storeName={displayName} />
-          <span className="flex flex-col leading-none">
-            <span className="font-display text-2xl font-bold text-oud-brown">
+          <span className="flex min-w-0 flex-col leading-none">
+            <span className="truncate font-display text-xl font-bold text-oud-brown sm:text-2xl">
               {displayName}
             </span>
             <span className="mt-1 hidden text-[11px] font-medium text-oud-muted sm:block">
@@ -52,7 +52,7 @@ export function SiteHeader({
           ))}
         </nav>
 
-        <div className="flex items-center gap-1 text-oud-brown sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 text-oud-brown sm:gap-2">
           <Link
             href="/search"
             aria-label="البحث"
@@ -96,7 +96,7 @@ function LogoMark({
 }) {
   if (logoUrl) {
     return (
-      <span className="grid size-11 place-items-center overflow-hidden rounded-oud border border-oud-gold/35 bg-oud-pearl shadow-gold lg:size-12">
+      <span className="grid size-11 shrink-0 place-items-center overflow-hidden rounded-oud border border-oud-gold/35 bg-oud-pearl shadow-gold lg:size-12">
         <Image
           src={logoUrl}
           alt={`${storeName} logo`}
@@ -110,7 +110,7 @@ function LogoMark({
   }
 
   return (
-    <span className="grid size-11 place-items-center rounded-oud border border-oud-gold/35 bg-oud-brown font-display text-lg font-bold text-oud-gold shadow-gold lg:size-12 lg:text-xl">
+    <span className="grid size-11 shrink-0 place-items-center rounded-oud border border-oud-gold/35 bg-oud-brown font-display text-lg font-bold text-oud-gold shadow-gold lg:size-12 lg:text-xl">
       ع
     </span>
   );

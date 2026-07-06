@@ -53,16 +53,16 @@ export function DashboardKpiCards({ kpis }: DashboardKpiCardsProps) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-4 xl:grid-cols-3">
       {items.map((item) => {
         const Icon = item.icon;
 
         return (
-          <Card key={item.label} className="p-5 shadow-none">
+          <Card key={item.label} className="p-4 shadow-none sm:p-5">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-sm font-semibold text-oud-muted">{item.label}</p>
-                <div className="mt-3 text-2xl font-bold text-oud-brown">{item.value}</div>
+                <div className="mt-3 break-words text-xl font-bold text-oud-brown sm:text-2xl">{item.value}</div>
               </div>
               <span className="grid size-11 place-items-center rounded-oud bg-oud-brown text-oud-gold">
                 <Icon className="size-5" aria-hidden="true" />

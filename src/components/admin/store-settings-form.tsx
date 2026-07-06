@@ -14,8 +14,8 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
       className="grid gap-5 xl:grid-cols-2"
       aria-label="إعدادات المتجر"
     >
-      <Card className="p-5 shadow-none">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">هوية المتجر</h2>
+      <Card className="p-4 shadow-none sm:p-5">
+        <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">هوية المتجر</h2>
         <div className="mt-5 space-y-4">
           <Input
             label="اسم المتجر"
@@ -47,8 +47,8 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
         </div>
       </Card>
 
-      <Card className="p-5 shadow-none">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">التواصل والشبكات</h2>
+      <Card className="p-4 shadow-none sm:p-5">
+        <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">التواصل والشبكات</h2>
         <div className="mt-5 space-y-4">
           <Input
             label="البريد الإلكتروني"
@@ -74,8 +74,8 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
         </div>
       </Card>
 
-      <Card className="p-5 shadow-none">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">الطلبات والعملة</h2>
+      <Card className="p-4 shadow-none sm:p-5">
+        <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">الطلبات والعملة</h2>
         <div className="mt-5 grid gap-4 md:grid-cols-2">
           <Input
             label="رمز العملة"
@@ -108,8 +108,8 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
         </div>
       </Card>
 
-      <Card className="p-5 shadow-none">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">حالة المتجر والضريبة</h2>
+      <Card className="p-4 shadow-none sm:p-5">
+        <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">حالة المتجر والضريبة</h2>
         <div className="mt-5 space-y-4">
           <CheckboxField
             name="is_store_open"
