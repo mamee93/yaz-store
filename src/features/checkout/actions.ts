@@ -6,6 +6,12 @@ import {
   incrementCouponUsage,
   validateCouponForSubtotal
 } from "@/features/coupons/actions";
+import { sendEmail } from "@/features/email/send-email";
+import { renderAdminNewOrderEmail } from "@/features/email/templates/admin-new-order-email";
+import {
+  renderOrderConfirmationEmail,
+  type OrderEmailItem
+} from "@/features/email/templates/order-confirmation-email";
 import { createOrderNotification } from "@/features/notifications/actions";
 import { calculateShippingForCheckout } from "@/features/shipping/actions";
 import { checkoutSchema } from "@/validations/checkout-schema";
@@ -40,6 +46,9 @@ type CheckoutStoreSettings = Pick<
   | "is_tax_enabled"
   | "tax_rate"
   | "order_prefix"
+  | "store_name"
+  | "store_name_ar"
+  | "store_email"
 >;
 
 export async function createCheckoutOrderAction(formData: FormData) {
@@ -290,6 +299,30 @@ export async function createCheckoutOrderAction(formData: FormData) {
       total
     });
 
+    await sendCheckoutOrderEmails({
+      storeName: getCheckoutStoreName(settings),
+      adminEmail: settings.store_email,
+      orderId: order.id,
+      orderNumber,
+      customerName: checkout.fullName,
+      customerPhone: checkout.phone,
+      customerEmail: checkout.email,
+      items: orderLines.map((line) => ({
+        name: line.product.name_ar,
+        sku: line.product.sku,
+        quantity: line.quantity,
+        unitPrice: line.unitPrice,
+        lineTotal: line.lineTotal
+      })),
+      subtotal,
+      discount,
+      shipping: shippingFee,
+      tax,
+      total,
+      shippingArea: shippingResult.shippingArea,
+      orderStatus: "قيد التأكيد"
+    });
+
     if (couponResult.coupon) {
       await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.used_count);
     }
@@ -306,7 +339,7 @@ async function getCheckoutStoreSettings(): Promise<CheckoutStoreSettings> {
   const { data, error } = await supabase
     .from("store_settings")
     .select(
-      "is_store_open,maintenance_message,maintenance_message_ar,minimum_order_amount,is_tax_enabled,tax_rate,order_prefix"
+      "is_store_open,maintenance_message,maintenance_message_ar,minimum_order_amount,is_tax_enabled,tax_rate,order_prefix,store_name,store_name_ar,store_email"
     )
     .limit(1)
     .maybeSingle()
@@ -320,11 +353,101 @@ async function getCheckoutStoreSettings(): Promise<CheckoutStoreSettings> {
       minimum_order_amount: 0,
       is_tax_enabled: false,
       tax_rate: 0,
-      order_prefix: "OY"
+      order_prefix: "OY",
+      store_name: null,
+      store_name_ar: "عود ياز",
+      store_email: null
     };
   }
 
   return data;
+}
+
+async function sendCheckoutOrderEmails({
+  storeName,
+  adminEmail,
+  orderId,
+  orderNumber,
+  customerName,
+  customerPhone,
+  customerEmail,
+  items,
+  subtotal,
+  discount,
+  shipping,
+  tax,
+  total,
+  shippingArea,
+  orderStatus
+}: {
+  storeName: string;
+  adminEmail: string | null;
+  orderId: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone: string;
+  customerEmail: string | null;
+  items: OrderEmailItem[];
+  subtotal: number;
+  discount: number;
+  shipping: number;
+  tax: number;
+  total: number;
+  shippingArea: string | null;
+  orderStatus: string;
+}) {
+  try {
+    await Promise.all([
+      sendEmail({
+        to: customerEmail,
+        subject: `تأكيد طلبك ${orderNumber}`,
+        html: renderOrderConfirmationEmail({
+          storeName,
+          orderNumber,
+          customerName,
+          items,
+          subtotal,
+          discount,
+          shipping,
+          tax,
+          total,
+          shippingArea,
+          orderStatus
+        })
+      }),
+      sendEmail({
+        to: adminEmail,
+        subject: `طلب جديد ${orderNumber}`,
+        html: renderAdminNewOrderEmail({
+          storeName,
+          orderNumber,
+          customerName,
+          customerPhone,
+          customerEmail,
+          total,
+          shippingArea,
+          adminOrderUrl: getAdminOrderUrl(orderId)
+        }),
+        replyTo: customerEmail
+      })
+    ]);
+  } catch (error) {
+    console.error("Checkout emails failed", error);
+  }
+}
+
+function getCheckoutStoreName(settings: CheckoutStoreSettings) {
+  return settings.store_name ?? settings.store_name_ar ?? "عود ياز";
+}
+
+function getAdminOrderUrl(orderId: string) {
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? process.env.NEXT_PUBLIC_SITE_URL;
+
+  if (!appUrl) {
+    return null;
+  }
+
+  return `${appUrl.replace(/\/$/, "")}/admin/orders/${orderId}`;
 }
 
 async function cleanupFailedOrder({
