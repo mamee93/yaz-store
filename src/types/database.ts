@@ -200,6 +200,7 @@ export type Database = {
           shipping_zone_id: string | null;
           shipping_area: string | null;
           shipping_fee_omr: number;
+          delivery_method: "pickup_office" | "home_delivery" | null;
           customer_name_snapshot: string;
           customer_phone_snapshot: string;
           delivery_address_snapshot: Json;

@@ -1,8 +1,12 @@
 import Image from "next/image";
 import { PackageCheck, TicketPercent, XCircle } from "lucide-react";
 import { Button, Card, Input, Price } from "@/components/ui";
+import {
+  getDeliveryFee,
+  getDeliveryMethod,
+  type DeliveryMethod
+} from "@/constants/oman-delivery";
 import type { CouponValidationState } from "@/features/coupons/actions";
-import type { ShippingZoneRow } from "@/features/shipping/queries";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import type { CartItem } from "@/stores/cart-store";
 
@@ -10,8 +14,7 @@ type OrderSummaryProps = {
   items: CartItem[];
   couponState: CouponValidationState;
   couponAction: (formData: FormData) => void;
-  shippingZones: ShippingZoneRow[];
-  selectedShippingZoneId: string;
+  selectedDeliveryMethod: DeliveryMethod;
   settings: StoreSettingsRead | null;
   isCouponPending?: boolean;
 };
@@ -20,28 +23,23 @@ export function OrderSummary({
   items,
   couponState,
   couponAction,
-  shippingZones,
-  selectedShippingZoneId,
+  selectedDeliveryMethod,
   settings,
   isCouponPending = false
 }: OrderSummaryProps) {
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
   const discount = couponState.status === "success" ? couponState.discountAmount : 0;
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
-  const selectedZone = shippingZones.find((zone) => zone.id === selectedShippingZoneId) ?? null;
-  const freeShippingApplies =
-    selectedZone?.free_shipping_minimum_omr !== null &&
-    selectedZone?.free_shipping_minimum_omr !== undefined &&
-    subtotalAfterDiscount >= selectedZone.free_shipping_minimum_omr;
-  const shippingFee = selectedZone ? (freeShippingApplies ? 0 : selectedZone.delivery_fee_omr) : 0;
+  const selectedMethod = getDeliveryMethod(selectedDeliveryMethod);
+  const shippingFee = getDeliveryFee(selectedDeliveryMethod);
   const tax = settings?.is_tax_enabled
     ? Number((subtotalAfterDiscount * (settings.tax_rate / 100)).toFixed(3))
     : 0;
   const total = subtotalAfterDiscount + shippingFee + tax;
 
   return (
-    <Card className="p-5">
-      <h2 className="font-display text-2xl font-bold text-oud-brown">مراجعة الطلب</h2>
+    <Card className="p-4 sm:p-5">
+      <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">مراجعة الطلب</h2>
       <div className="mt-5 space-y-4">
         {items.map((item) => (
           <div key={item.productId} className="flex gap-3 border-b border-oud-brown/10 pb-4 last:border-0">
@@ -60,12 +58,12 @@ export function OrderSummary({
               ) : null}
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold text-oud-brown">{item.name}</p>
+              <p className="break-words text-sm font-bold text-oud-brown">{item.name}</p>
               <p className="mt-1 text-xs text-oud-muted">
                 الكمية: {item.quantity} · {item.sizeLabel}
               </p>
             </div>
-            <Price value={item.price * item.quantity} className="text-sm" />
+            <Price value={item.price * item.quantity} className="shrink-0 text-sm" />
           </div>
         ))}
       </div>
@@ -86,12 +84,9 @@ export function OrderSummary({
           />
         ) : null}
         <SummaryRow
-          label={selectedZone ? `التوصيل - ${selectedZone.area}` : "التوصيل"}
-          value={selectedZone ? <Price value={shippingFee} /> : <span>اختر المنطقة</span>}
+          label={selectedMethod ? selectedMethod.label : "التوصيل"}
+          value={<Price value={shippingFee} />}
         />
-        {selectedZone?.estimated_delivery_time ? (
-          <SummaryRow label="مدة التوصيل" value={<span>{selectedZone.estimated_delivery_time}</span>} />
-        ) : null}
         {settings?.is_tax_enabled ? (
           <SummaryRow label={`الضريبة ${settings.tax_rate}%`} value={<Price value={tax} />} />
         ) : null}
@@ -133,7 +128,7 @@ function CouponBox({
             <input type="hidden" name="quantity" value={item.quantity} />
           </div>
         ))}
-        <div className="flex items-end gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <Input
             label="كوبون الخصم"
             name="couponCode"
@@ -142,7 +137,7 @@ function CouponBox({
             dir="ltr"
             className="bg-white"
           />
-          <Button type="submit" variant="gold" isLoading={isPending}>
+          <Button type="submit" variant="gold" isLoading={isPending} className="sm:w-auto">
             تطبيق
           </Button>
         </div>

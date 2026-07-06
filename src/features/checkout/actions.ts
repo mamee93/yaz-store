@@ -13,7 +13,7 @@ import {
   type OrderEmailItem
 } from "@/features/email/templates/order-confirmation-email";
 import { createOrderNotification } from "@/features/notifications/actions";
-import { calculateShippingForCheckout } from "@/features/shipping/actions";
+import { getDeliveryFee, getDeliveryMethod } from "@/constants/oman-delivery";
 import { checkoutSchema } from "@/validations/checkout-schema";
 import type { Database, Json } from "@/types/database";
 
@@ -64,6 +64,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
     shippingZoneId: formData.get("shippingZoneId"),
     addressLine: formData.get("addressLine"),
     deliveryNotes: formData.get("deliveryNotes"),
+    deliveryMethod: formData.get("deliveryMethod"),
     couponCode: formData.get("couponCode"),
     paymentMethod: formData.get("paymentMethod"),
     productId: formData.getAll("productId"),
@@ -153,16 +154,18 @@ export async function createCheckoutOrderAction(formData: FormData) {
     );
   }
 
-  const shippingResult = await calculateShippingForCheckout({
-    shippingZoneId: checkout.shippingZoneId,
-    subtotalAfterDiscount
-  });
+  const deliveryMethod = getDeliveryMethod(checkout.deliveryMethod);
 
-  if (!shippingResult.isValid) {
-    redirectWithCheckoutError(shippingResult.message ?? "تعذر حساب رسوم التوصيل.");
+  if (!deliveryMethod) {
+    redirectWithCheckoutError("طريقة التوصيل غير صحيحة.");
   }
 
-  const shippingFee = roundMoney(shippingResult.shippingFee);
+  const shippingFee = roundMoney(getDeliveryFee(checkout.deliveryMethod));
+  const shippingArea = buildShippingArea({
+    governorate: checkout.governorate,
+    wilayat: checkout.wilayat,
+    area: checkout.area
+  });
   const tax = settings.is_tax_enabled
     ? roundMoney(subtotalAfterDiscount * (settings.tax_rate / 100))
     : 0;
@@ -175,7 +178,10 @@ export async function createCheckoutOrderAction(formData: FormData) {
     governorate: checkout.governorate,
     wilayat: checkout.wilayat,
     area: checkout.area,
-    shipping_area: shippingResult.shippingArea,
+    shipping_area: shippingArea,
+    delivery_method: checkout.deliveryMethod,
+    delivery_method_label: deliveryMethod.label,
+    shipping_fee_omr: shippingFee,
     address_line_1: checkout.addressLine,
     delivery_notes: checkout.deliveryNotes
   } satisfies Json;
@@ -212,6 +218,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
         country: checkout.country,
         governorate: checkout.governorate,
         wilayat: checkout.wilayat,
+        city: checkout.wilayat,
         area: checkout.area,
         address_line_1: checkout.addressLine,
         delivery_notes: checkout.deliveryNotes,
@@ -242,9 +249,10 @@ export async function createCheckoutOrderAction(formData: FormData) {
         tax_omr: tax,
         total_omr: total,
         coupon_code: couponResult.code,
-        shipping_zone_id: shippingResult.zone?.id ?? null,
-        shipping_area: shippingResult.shippingArea,
+        shipping_zone_id: checkout.shippingZoneId,
+        shipping_area: shippingArea,
         shipping_fee_omr: shippingFee,
+        delivery_method: checkout.deliveryMethod,
         customer_name_snapshot: checkout.fullName,
         customer_phone_snapshot: checkout.phone,
         delivery_address_snapshot: addressSnapshot,
@@ -319,7 +327,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
       shipping: shippingFee,
       tax,
       total,
-      shippingArea: shippingResult.shippingArea,
+      shippingArea,
       orderStatus: "قيد التأكيد"
     });
 
@@ -448,6 +456,18 @@ function getAdminOrderUrl(orderId: string) {
   }
 
   return `${appUrl.replace(/\/$/, "")}/admin/orders/${orderId}`;
+}
+
+function buildShippingArea({
+  governorate,
+  wilayat,
+  area
+}: {
+  governorate: string;
+  wilayat: string;
+  area: string;
+}) {
+  return [governorate, wilayat, area].filter(Boolean).join(" - ");
 }
 
 async function cleanupFailedOrder({

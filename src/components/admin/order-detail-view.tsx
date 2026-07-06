@@ -16,6 +16,11 @@ const paymentMethodLabels = {
   tap_payments: "دفع إلكتروني"
 };
 
+const deliveryMethodLabels = {
+  pickup_office: "استلام من المكتب",
+  home_delivery: "توصيل للمنزل"
+};
+
 export function OrderDetailView({ order }: OrderDetailViewProps) {
   const updateAction = updateOrderAction.bind(null, order.id);
   const address = parseAddressSnapshot(order.delivery_address_snapshot);
@@ -104,6 +109,7 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
             <p className="font-semibold text-oud-brown">{order.customer_name_snapshot}</p>
             <p dir="ltr">{order.customer_phone_snapshot}</p>
             <p>{paymentMethodLabels[order.payment_method]}</p>
+            {order.delivery_method ? <p>{deliveryMethodLabels[order.delivery_method]}</p> : null}
           </div>
         </Card>
 

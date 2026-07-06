@@ -7,17 +7,16 @@ import { CheckCircle2, ShoppingBag, Truck } from "lucide-react";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
 import { OrderSummary } from "@/components/checkout/order-summary";
 import { Container, EmptyState, Heading, Section } from "@/components/ui";
+import { type DeliveryMethod } from "@/constants/oman-delivery";
 import {
   validateCheckoutCouponAction,
   type CouponValidationState
 } from "@/features/coupons/actions";
 import { createCheckoutOrderAction } from "@/features/checkout/actions";
-import type { ShippingZoneRow } from "@/features/shipping/queries";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import { useCart } from "@/hooks/use-cart";
 
 type CheckoutClientProps = {
-  shippingZones: ShippingZoneRow[];
   settings: StoreSettingsRead | null;
 };
 
@@ -31,10 +30,11 @@ const initialCouponState: CouponValidationState = {
   cartSignature: ""
 };
 
-export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps) {
+export function CheckoutClient({ settings }: CheckoutClientProps) {
   const searchParams = useSearchParams();
   const { isHydrated, items } = useCart();
-  const [selectedShippingZoneId, setSelectedShippingZoneId] = useState("");
+  const [selectedDeliveryMethod, setSelectedDeliveryMethod] =
+    useState<DeliveryMethod>("home_delivery");
   const [couponState, couponAction, isCouponPending] = useActionState(
     validateCheckoutCouponAction,
     initialCouponState
@@ -52,7 +52,7 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
   const minimumOrderAmount = settings?.minimum_order_amount ?? 0;
   const isBelowMinimum = subtotalAfterDiscount < minimumOrderAmount;
-  const canSubmit = Boolean(selectedShippingZoneId) && !isBelowMinimum;
+  const canSubmit = !isBelowMinimum;
 
   return (
     <main>
@@ -61,7 +61,7 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
           <Heading
             level={1}
             eyebrow="إتمام الطلب"
-            description="أدخل بيانات التواصل والتوصيل، ثم اختر طريقة الدفع المناسبة. سيتم تأكيد الطلب يدويا قبل التجهيز."
+            description="أدخل بيانات التواصل والتوصيل داخل عمان، ثم اختر طريقة الاستلام أو التوصيل والدفع المناسبة. سيتم تأكيد الطلب يدويا قبل التجهيز."
           >
             بيانات التوصيل والدفع
           </Heading>
@@ -73,14 +73,13 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
         <Container>
           {hasItems && settings?.is_store_open === false ? (
             <ClosedStoreState message={getEffectiveMaintenanceMessage(settings)} />
-          ) : hasItems && shippingZones.length > 0 ? (
+          ) : hasItems ? (
             <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start xl:gap-6">
               <CheckoutForm
                 action={createCheckoutOrderAction}
                 items={items}
-                shippingZones={shippingZones}
-                selectedShippingZoneId={selectedShippingZoneId}
-                onShippingZoneChange={setSelectedShippingZoneId}
+                selectedDeliveryMethod={selectedDeliveryMethod}
+                onDeliveryMethodChange={setSelectedDeliveryMethod}
                 couponCode={activeCouponState.code}
               />
 
@@ -91,8 +90,7 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
                     couponState.cartSignature === cartSignature ? couponState : initialCouponState
                   }
                   couponAction={couponAction}
-                  shippingZones={shippingZones}
-                  selectedShippingZoneId={selectedShippingZoneId}
+                  selectedDeliveryMethod={selectedDeliveryMethod}
                   settings={settings}
                   isCouponPending={isCouponPending}
                 />
@@ -108,12 +106,10 @@ export function CheckoutClient({ shippingZones, settings }: CheckoutClientProps)
                 <p className="text-center text-xs leading-6 text-oud-muted">
                   {isBelowMinimum
                     ? `الحد الأدنى للطلب هو ${minimumOrderAmount.toFixed(3)} OMR بعد الخصم.`
-                    : "يتم احتساب الشحن المجاني بعد تطبيق الخصم، ولن يتم خصم المخزون حتى يؤكد فريق عود ياز الطلب."}
+                    : "سيتم التحقق من الأسعار والمخزون من قاعدة البيانات، ولن يتم خصم المخزون حتى يؤكد فريق عود ياز الطلب."}
                 </p>
               </aside>
             </div>
-          ) : hasItems ? (
-            <UnavailableShippingState />
           ) : (
             <EmptyCartState />
           )}
@@ -142,24 +138,6 @@ function EmptyCartState() {
           className="inline-flex h-11 items-center justify-center rounded-oud bg-oud-brown px-6 text-sm font-semibold text-oud-ivory"
         >
           تصفح المنتجات
-        </Link>
-      }
-    />
-  );
-}
-
-function UnavailableShippingState() {
-  return (
-    <EmptyState
-      title="التوصيل غير متاح حاليا"
-      description="لا توجد مناطق توصيل نشطة الآن. يرجى التواصل معنا عبر واتساب لإكمال الطلب."
-      icon={<Truck className="size-5" aria-hidden="true" />}
-      action={
-        <Link
-          href="/contact"
-          className="inline-flex h-11 items-center justify-center rounded-oud bg-oud-brown px-6 text-sm font-semibold text-oud-ivory"
-        >
-          تواصل معنا
         </Link>
       }
     />

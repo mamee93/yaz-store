@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { ShieldCheck, Trash2 } from "lucide-react";
 import { Button, Card, Price } from "@/components/ui";
-import { deliveryFee } from "./static-checkout";
 import type { CartItem } from "@/stores/cart-store";
 
 type CartSummaryProps = {
@@ -20,7 +19,6 @@ export function CartSummary({
   onClear
 }: CartSummaryProps) {
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
-  const total = subtotal + deliveryFee;
 
   return (
     <Card className="p-4 sm:p-5">
@@ -28,7 +26,10 @@ export function CartSummary({
 
       <div className="mt-5 space-y-3 border-y border-oud-brown/10 py-5 text-sm">
         <SummaryRow label="المجموع الفرعي" value={<Price value={subtotal} />} />
-        <SummaryRow label="رسوم التوصيل" value={<Price value={deliveryFee} />} />
+        <SummaryRow
+          label="رسوم التوصيل"
+          value={<span className="font-semibold text-oud-muted">تحدد في checkout</span>}
+        />
         <SummaryRow
           label="الخصم"
           value={<span className="font-semibold text-oud-muted">غير مفعل</span>}
@@ -36,8 +37,8 @@ export function CartSummary({
       </div>
 
       <div className="mt-5 flex items-center justify-between">
-        <span className="text-base font-bold text-oud-brown">الإجمالي</span>
-        <Price value={total} className="text-xl" />
+        <span className="text-base font-bold text-oud-brown">المجموع قبل التوصيل</span>
+        <Price value={subtotal} className="text-xl" />
       </div>
 
       <Link
