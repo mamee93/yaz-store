@@ -1,0 +1,32 @@
+html {
+  direction: rtl;
+}
+
+body {
+  text-align: right;
+}
+
+input,
+textarea,
+select,
+button {
+  font: inherit;
+}
+
+input,
+textarea,
+select {
+  direction: rtl;
+}
+
+[dir="ltr"],
+.dir-ltr {
+  direction: ltr;
+  text-align: left;
+}
+
+[dir="rtl"],
+.dir-rtl {
+  direction: rtl;
+  text-align: right;
+}
