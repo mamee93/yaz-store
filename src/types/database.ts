@@ -195,6 +195,10 @@ export type Database = {
           delivery_fee_omr: number;
           discount_omr: number;
           total_omr: number;
+          coupon_code: string | null;
+          shipping_zone_id: string | null;
+          shipping_area: string | null;
+          shipping_fee_omr: number;
           customer_name_snapshot: string;
           customer_phone_snapshot: string;
           delivery_address_snapshot: Json;
@@ -267,6 +271,55 @@ export type Database = {
           amount_omr: number;
         };
         Update: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
+        Relationships: [];
+      };
+      coupons: {
+        Row: {
+          id: string;
+          code: string;
+          name: string;
+          description: string | null;
+          discount_type: "percentage" | "fixed";
+          discount_value: number;
+          minimum_order_amount: number;
+          maximum_discount_amount: number | null;
+          usage_limit: number | null;
+          used_count: number;
+          starts_at: string | null;
+          expires_at: string | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["coupons"]["Row"]> & {
+          code: string;
+          name: string;
+          discount_type: "percentage" | "fixed";
+          discount_value: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["coupons"]["Row"]>;
+        Relationships: [];
+      };
+      shipping_zones: {
+        Row: {
+          id: string;
+          name: string;
+          city: string;
+          area: string;
+          delivery_fee_omr: number;
+          free_shipping_minimum_omr: number | null;
+          estimated_delivery_time: string | null;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["shipping_zones"]["Row"]> & {
+          name: string;
+          city: string;
+          area: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["shipping_zones"]["Row"]>;
         Relationships: [];
       };
       inventory_movements: {

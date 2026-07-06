@@ -1,15 +1,28 @@
 import { Input, Select, Textarea } from "@/components/ui";
 import { PaymentMethodSelector } from "./payment-method-selector";
+import type { ShippingZoneRow } from "@/features/shipping/queries";
 import type { CartItem } from "@/stores/cart-store";
 
 type CheckoutFormProps = {
   action: (formData: FormData) => Promise<void>;
   items: CartItem[];
+  shippingZones: ShippingZoneRow[];
+  selectedShippingZoneId: string;
+  onShippingZoneChange: (zoneId: string) => void;
+  couponCode?: string | null;
 };
 
-export function CheckoutForm({ action, items }: CheckoutFormProps) {
+export function CheckoutForm({
+  action,
+  items,
+  shippingZones,
+  selectedShippingZoneId,
+  onShippingZoneChange,
+  couponCode
+}: CheckoutFormProps) {
   return (
     <form id="checkout-form" action={action} className="space-y-5" aria-label="نموذج إتمام الطلب">
+      {couponCode ? <input type="hidden" name="couponCode" value={couponCode} /> : null}
       {items.map((item) => (
         <div key={item.productId}>
           <input type="hidden" name="productId" value={item.productId} />
@@ -66,6 +79,22 @@ export function CheckoutForm({ action, items }: CheckoutFormProps) {
             <option value="صلالة">صلالة</option>
           </Select>
           <Input label="المنطقة" name="area" placeholder="مثال: الخوير" />
+          <Select
+            label="منطقة التوصيل"
+            name="shippingZoneId"
+            value={selectedShippingZoneId}
+            onChange={(event) => onShippingZoneChange(event.target.value)}
+            required
+          >
+            <option value="" disabled>
+              اختر منطقة التوصيل
+            </option>
+            {shippingZones.map((zone) => (
+              <option key={zone.id} value={zone.id}>
+                {zone.name} - {zone.city} / {zone.area}
+              </option>
+            ))}
+          </Select>
           <Input
             label="العنوان التفصيلي"
             name="addressLine"

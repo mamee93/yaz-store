@@ -7,6 +7,8 @@ import {
   Image,
   LayoutDashboard,
   Settings,
+  Truck,
+  TicketPercent,
   Users
 } from "lucide-react";
 import { LogoutButton } from "@/components/admin/logout-button";
@@ -18,6 +20,8 @@ const adminNavItems = [
   { href: "/admin/categories", label: "التصنيفات", icon: FolderTree },
   { href: "/admin/orders", label: "الطلبات", icon: ClipboardList },
   { href: "/admin/customers", label: "العملاء", icon: Users },
+  { href: "/admin/coupons", label: "الكوبونات", icon: TicketPercent },
+  { href: "/admin/shipping", label: "التوصيل", icon: Truck },
   { href: "/admin/inventory", label: "المخزون", icon: ChartNoAxesColumnIncreasing },
   { href: "/admin/banners", label: "البنرات", icon: Image },
   { href: "/admin/settings", label: "الإعدادات", icon: Settings }

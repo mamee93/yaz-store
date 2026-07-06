@@ -1,16 +1,37 @@
 import Image from "next/image";
-import { PackageCheck } from "lucide-react";
-import { Card, Price } from "@/components/ui";
-import { deliveryFee } from "./static-checkout";
+import { PackageCheck, TicketPercent, XCircle } from "lucide-react";
+import { Button, Card, Input, Price } from "@/components/ui";
+import type { CouponValidationState } from "@/features/coupons/actions";
+import type { ShippingZoneRow } from "@/features/shipping/queries";
 import type { CartItem } from "@/stores/cart-store";
 
 type OrderSummaryProps = {
   items: CartItem[];
+  couponState: CouponValidationState;
+  couponAction: (formData: FormData) => void;
+  shippingZones: ShippingZoneRow[];
+  selectedShippingZoneId: string;
+  isCouponPending?: boolean;
 };
 
-export function OrderSummary({ items }: OrderSummaryProps) {
+export function OrderSummary({
+  items,
+  couponState,
+  couponAction,
+  shippingZones,
+  selectedShippingZoneId,
+  isCouponPending = false
+}: OrderSummaryProps) {
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
-  const total = subtotal + deliveryFee;
+  const discount = couponState.status === "success" ? couponState.discountAmount : 0;
+  const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+  const selectedZone = shippingZones.find((zone) => zone.id === selectedShippingZoneId) ?? null;
+  const freeShippingApplies =
+    selectedZone?.free_shipping_minimum_omr !== null &&
+    selectedZone?.free_shipping_minimum_omr !== undefined &&
+    subtotalAfterDiscount >= selectedZone.free_shipping_minimum_omr;
+  const shippingFee = selectedZone ? (freeShippingApplies ? 0 : selectedZone.delivery_fee_omr) : 0;
+  const total = subtotalAfterDiscount + shippingFee;
 
   return (
     <Card className="p-5">
@@ -43,17 +64,107 @@ export function OrderSummary({ items }: OrderSummaryProps) {
         ))}
       </div>
 
+      <CouponBox
+        items={items}
+        state={couponState}
+        action={couponAction}
+        isPending={isCouponPending}
+      />
+
       <div className="mt-5 space-y-3 border-t border-oud-brown/10 pt-5 text-sm">
         <SummaryRow label="المجموع الفرعي" value={<Price value={subtotal} />} />
-        <SummaryRow label="التوصيل" value={<Price value={deliveryFee} />} />
+        {discount > 0 ? (
+          <SummaryRow
+            label={`خصم الكوبون ${couponState.code ?? ""}`}
+            value={<Price value={-discount} className="text-green-900" />}
+          />
+        ) : null}
+        <SummaryRow
+          label={selectedZone ? `التوصيل - ${selectedZone.area}` : "التوصيل"}
+          value={selectedZone ? <Price value={shippingFee} /> : <span>اختر المنطقة</span>}
+        />
+        {selectedZone?.estimated_delivery_time ? (
+          <SummaryRow label="مدة التوصيل" value={<span>{selectedZone.estimated_delivery_time}</span>} />
+        ) : null}
         <SummaryRow label="الإجمالي" value={<Price value={total} className="text-lg" />} />
       </div>
 
       <div className="mt-5 flex gap-2 rounded-oud bg-oud-beige/35 p-3 text-xs leading-6 text-oud-muted">
         <PackageCheck className="mt-0.5 size-4 shrink-0 text-oud-gold" aria-hidden="true" />
-        سيتم تأكيد الطلب والدفع يدوياً بعد مراجعة المنتجات والمخزون.
+        سيتم تأكيد الطلب والدفع يدويا بعد مراجعة المنتجات والمخزون.
       </div>
     </Card>
+  );
+}
+
+function CouponBox({
+  items,
+  state,
+  action,
+  isPending
+}: {
+  items: CartItem[];
+  state: CouponValidationState;
+  action: (formData: FormData) => void;
+  isPending: boolean;
+}) {
+  return (
+    <div className="mt-5 rounded-oud border border-oud-brown/10 bg-oud-beige/25 p-4">
+      <form action={action} className="space-y-3">
+        <input type="hidden" name="intent" value="apply" />
+        {items.map((item) => (
+          <div key={item.productId}>
+            <input type="hidden" name="productId" value={item.productId} />
+            <input type="hidden" name="quantity" value={item.quantity} />
+          </div>
+        ))}
+        <div className="flex items-end gap-2">
+          <Input
+            label="كوبون الخصم"
+            name="couponCode"
+            defaultValue={state.code ?? ""}
+            placeholder="OUD10"
+            dir="ltr"
+            className="bg-white"
+          />
+          <Button type="submit" variant="gold" isLoading={isPending}>
+            تطبيق
+          </Button>
+        </div>
+      </form>
+
+      {state.message ? (
+        <div
+          className={
+            state.status === "success"
+              ? "mt-3 flex items-start gap-2 rounded-oud bg-green-900/10 px-3 py-2 text-xs font-semibold text-green-900"
+              : "mt-3 flex items-start gap-2 rounded-oud bg-red-900/10 px-3 py-2 text-xs font-semibold text-red-900"
+          }
+        >
+          {state.status === "success" ? (
+            <TicketPercent className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          ) : (
+            <XCircle className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+          )}
+          <span>{state.message}</span>
+        </div>
+      ) : null}
+
+      {state.status === "success" ? (
+        <form action={action} className="mt-3">
+          <input type="hidden" name="intent" value="remove" />
+          {items.map((item) => (
+            <div key={item.productId}>
+              <input type="hidden" name="productId" value={item.productId} />
+              <input type="hidden" name="quantity" value={item.quantity} />
+            </div>
+          ))}
+          <Button type="submit" variant="ghost" size="sm">
+            إزالة الكوبون
+          </Button>
+        </form>
+      ) : null}
+    </div>
   );
 }
 

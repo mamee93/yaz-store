@@ -2,6 +2,11 @@
 
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import {
+  incrementCouponUsage,
+  validateCouponForSubtotal
+} from "@/features/coupons/actions";
+import { calculateShippingForCheckout } from "@/features/shipping/actions";
 import { checkoutSchema } from "@/validations/checkout-schema";
 import type { Database, Json } from "@/types/database";
 
@@ -25,8 +30,6 @@ type CheckoutInsertIds = {
   id: string;
 };
 
-const deliveryFee = 2;
-
 export async function createCheckoutOrderAction(formData: FormData) {
   const parsed = checkoutSchema.safeParse({
     fullName: formData.get("fullName"),
@@ -37,8 +40,10 @@ export async function createCheckoutOrderAction(formData: FormData) {
     governorate: formData.get("governorate"),
     wilayat: formData.get("wilayat"),
     area: formData.get("area"),
+    shippingZoneId: formData.get("shippingZoneId"),
     addressLine: formData.get("addressLine"),
     deliveryNotes: formData.get("deliveryNotes"),
+    couponCode: formData.get("couponCode"),
     paymentMethod: formData.get("paymentMethod"),
     productId: formData.getAll("productId"),
     quantity: formData.getAll("quantity")
@@ -102,7 +107,25 @@ export async function createCheckoutOrderAction(formData: FormData) {
   });
 
   const subtotal = roundMoney(orderLines.reduce((total, item) => total + item.lineTotal, 0));
-  const total = roundMoney(subtotal + deliveryFee);
+  const couponResult = await validateCouponForSubtotal(checkout.couponCode, subtotal);
+
+  if (!couponResult.isValid) {
+    redirectWithCheckoutError(couponResult.message ?? "تعذر تطبيق كود الخصم.");
+  }
+
+  const discount = couponResult.discountAmount;
+  const subtotalAfterDiscount = roundMoney(Math.max(0, subtotal - discount));
+  const shippingResult = await calculateShippingForCheckout({
+    shippingZoneId: checkout.shippingZoneId,
+    subtotalAfterDiscount
+  });
+
+  if (!shippingResult.isValid) {
+    redirectWithCheckoutError(shippingResult.message ?? "تعذر حساب رسوم التوصيل.");
+  }
+
+  const shippingFee = roundMoney(shippingResult.shippingFee);
+  const total = roundMoney(subtotalAfterDiscount + shippingFee);
   const orderNumber = generateOrderNumber();
   const addressSnapshot = {
     full_name: checkout.fullName,
@@ -111,6 +134,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
     governorate: checkout.governorate,
     wilayat: checkout.wilayat,
     area: checkout.area,
+    shipping_area: shippingResult.shippingArea,
     address_line_1: checkout.addressLine,
     delivery_notes: checkout.deliveryNotes
   } satisfies Json;
@@ -172,9 +196,13 @@ export async function createCheckoutOrderAction(formData: FormData) {
         payment_method: checkout.paymentMethod,
         payment_status: "pending",
         subtotal_omr: subtotal,
-        delivery_fee_omr: deliveryFee,
-        discount_omr: 0,
+        delivery_fee_omr: shippingFee,
+        discount_omr: discount,
         total_omr: total,
+        coupon_code: couponResult.code,
+        shipping_zone_id: shippingResult.zone?.id ?? null,
+        shipping_area: shippingResult.shippingArea,
+        shipping_fee_omr: shippingFee,
         customer_name_snapshot: checkout.fullName,
         customer_phone_snapshot: checkout.phone,
         delivery_address_snapshot: addressSnapshot,
@@ -220,6 +248,10 @@ export async function createCheckoutOrderAction(formData: FormData) {
 
     if (paymentError) {
       throw new Error("payment");
+    }
+
+    if (couponResult.coupon) {
+      await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.used_count);
     }
   } catch {
     await cleanupFailedOrder({ customerId, addressId, orderId });

@@ -26,8 +26,16 @@ export const checkoutSchema = z.object({
   governorate: requiredText("المحافظة مطلوبة"),
   wilayat: requiredText("الولاية مطلوبة"),
   area: optionalText,
+  shippingZoneId: requiredText("منطقة التوصيل مطلوبة").uuid("منطقة التوصيل غير صحيحة"),
   addressLine: requiredText("العنوان التفصيلي مطلوب"),
   deliveryNotes: optionalText,
+  couponCode: z.preprocess((value) => {
+    if (typeof value !== "string" || value.trim() === "") {
+      return null;
+    }
+
+    return value.trim().toUpperCase();
+  }, z.string().max(40, "كود الخصم طويل جدا").nullable()),
   paymentMethod: z.enum(["cash_on_delivery", "bank_transfer", "manual_confirmation"], {
     required_error: "طريقة الدفع مطلوبة",
     invalid_type_error: "طريقة الدفع غير صحيحة"
