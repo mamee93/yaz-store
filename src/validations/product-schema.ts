@@ -60,14 +60,12 @@ export const productSchema = z
     description_ar: optionalText,
     scent_family: optionalText,
     intensity: optionalText,
-    size_label: optionalText,
     usage_ar: optionalText,
     occasion_ar: optionalText,
     weight_grams: optionalPositiveNumber.pipe(
       z.number().int("الوزن يجب أن يكون رقماً صحيحاً").positive().nullable()
     ),
     volume_ml: optionalPositiveNumber,
-    burn_time: optionalText,
     meta_title_ar: optionalText,
     meta_description_ar: optionalText,
     search_keywords_ar: optionalText,

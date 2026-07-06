@@ -89,8 +89,6 @@ export function ProductForm({
               defaultValue={product?.intensity ?? ""}
               placeholder="خفيف، متوسط، قوي"
             />
-            <Input label="الحجم الظاهر" name="size_label" defaultValue={product?.size_label ?? ""} />
-            <Input label="مدة الاحتراق" name="burn_time" defaultValue={product?.burn_time ?? ""} />
             <Input
               label="الوزن بالجرام"
               name="weight_grams"

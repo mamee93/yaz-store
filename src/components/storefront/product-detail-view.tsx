@@ -43,8 +43,7 @@ export function ProductDetailView({ product, relatedProducts }: ProductDetailVie
 
             <Card className="space-y-4 p-5">
               <p className="text-sm leading-8 text-oud-muted">{product.description}</p>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <DetailStat label="الحجم" value={product.sizeLabel} />
+              <div className="grid gap-3 sm:grid-cols-2">
                 <DetailStat label="القوة" value={product.intensity} />
                 <DetailStat label="المخزون" value={product.stockLabel} />
               </div>

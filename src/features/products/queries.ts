@@ -40,7 +40,6 @@ export type ProductRow = {
   is_new_arrival: boolean;
   scent_family: string | null;
   intensity: string | null;
-  size_label: string | null;
   usage_ar: string | null;
   occasion_ar: string | null;
   meta_title_ar: string | null;
@@ -48,7 +47,6 @@ export type ProductRow = {
   search_keywords_ar: string | null;
   weight_grams: number | null;
   volume_ml: number | null;
-  burn_time: string | null;
   sort_order: number;
   deleted_at: string | null;
   created_at: string;
@@ -76,7 +74,6 @@ const productSelect = `
   is_new_arrival,
   scent_family,
   intensity,
-  size_label,
   usage_ar,
   occasion_ar,
   meta_title_ar,
@@ -84,7 +81,6 @@ const productSelect = `
   search_keywords_ar,
   weight_grams,
   volume_ml,
-  burn_time,
   sort_order,
   deleted_at,
   created_at,
@@ -218,7 +214,7 @@ export function mapProductToStoreProduct(product: ProductRow): StoreProduct {
     scentProfile: splitArabicList(product.scent_family, ["فاخر", "عربي", "هادئ"]),
     usage: splitArabicList(product.usage_ar, ["استخدم حسب الحاجة", "يحفظ بعيداً عن الحرارة"]),
     occasions: splitArabicList(product.occasion_ar, ["اليوميات", "الهدايا"]),
-    sizeLabel: product.size_label ?? "حجم مختار",
+    sizeLabel: getProductMeasuredSizeLabel(product),
     intensity: product.intensity ?? "متوازن",
     stockLabel,
     imageTone: primaryImage
@@ -270,6 +266,18 @@ function getSortedProductImages(images: ProductImageRow[] | null) {
       alt: image.alt_text_ar ?? "ØµÙˆØ±Ø© Ø§Ù„Ù…Ù†ØªØ¬",
       isPrimary: image.is_primary
     }));
+}
+
+function getProductMeasuredSizeLabel(product: ProductRow) {
+  if (product.volume_ml) {
+    return `${product.volume_ml} مل`;
+  }
+
+  if (product.weight_grams) {
+    return `${product.weight_grams} جم`;
+  }
+
+  return "منتج مختار";
 }
 
 function splitArabicList(value: string | null, fallback: string[]) {

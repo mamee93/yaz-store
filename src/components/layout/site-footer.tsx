@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Instagram, MessageCircle, Music2 } from "lucide-react";
 import { Container } from "@/components/ui";
 import { siteConfig } from "@/constants/site";
@@ -18,7 +19,15 @@ const supportLinks = [
   { href: "/contact", label: "تواصل معنا" }
 ];
 
-export function SiteFooter({ storeName, description }: { storeName?: string; description?: string | null }) {
+export function SiteFooter({
+  storeName,
+  description,
+  logoUrl
+}: {
+  storeName?: string;
+  description?: string | null;
+  logoUrl?: string | null;
+}) {
   const displayName = storeName ?? siteConfig.name;
 
   return (
@@ -27,9 +36,7 @@ export function SiteFooter({ storeName, description }: { storeName?: string; des
         <div className="grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
           <div className="space-y-4">
             <Link href="/" className="inline-flex items-center gap-3" aria-label={displayName}>
-              <span className="grid size-11 place-items-center rounded-oud border border-oud-gold/45 bg-oud-coffee font-display text-lg font-bold text-oud-gold">
-                ع
-              </span>
+              <FooterLogoMark logoUrl={logoUrl} storeName={displayName} />
               <span className="font-display text-3xl font-bold">{displayName}</span>
             </Link>
             <p className="max-w-sm text-sm leading-7 text-oud-beige">
@@ -80,6 +87,35 @@ export function SiteFooter({ storeName, description }: { storeName?: string; des
         </div>
       </Container>
     </footer>
+  );
+}
+
+function FooterLogoMark({
+  logoUrl,
+  storeName
+}: {
+  logoUrl?: string | null;
+  storeName: string;
+}) {
+  if (logoUrl) {
+    return (
+      <span className="grid size-11 place-items-center overflow-hidden rounded-oud border border-oud-gold/45 bg-oud-ivory">
+        <Image
+          src={logoUrl}
+          alt={`${storeName} logo`}
+          width={44}
+          height={44}
+          unoptimized
+          className="h-full w-full object-contain p-1.5"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className="grid size-11 place-items-center rounded-oud border border-oud-gold/45 bg-oud-coffee font-display text-lg font-bold text-oud-gold">
+      ع
+    </span>
   );
 }
 

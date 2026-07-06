@@ -11,7 +11,6 @@ export function StoreSettingsForm({ settings }: StoreSettingsFormProps) {
   return (
     <form
       action={updateStoreSettingsAction}
-      encType="multipart/form-data"
       className="grid gap-5 xl:grid-cols-2"
       aria-label="إعدادات المتجر"
     >

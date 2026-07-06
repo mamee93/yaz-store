@@ -121,6 +121,8 @@ export async function updateStoreSettingsAction(formData: FormData) {
     redirectWithMessage("error", "تعذر حفظ إعدادات المتجر. حاول مرة أخرى.");
   }
 
+  revalidatePath("/", "layout");
+  revalidatePath("/admin", "layout");
   revalidatePath("/");
   revalidatePath("/checkout");
   revalidatePath("/admin/settings");

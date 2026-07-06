@@ -46,7 +46,16 @@ export function MobileNav({ items }: MobileNavProps) {
 
       <div
         className={cn(
-          "fixed inset-x-0 top-16 z-50 border-b border-oud-brown/10 bg-oud-ivory/98 shadow-soft backdrop-blur-xl transition",
+          "fixed inset-x-0 bottom-0 top-16 z-[90] bg-oud-brown/70 backdrop-blur-sm transition-opacity",
+          isOpen ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+        )}
+        aria-hidden="true"
+        onClick={() => setIsOpen(false)}
+      />
+
+      <div
+        className={cn(
+          "fixed inset-x-0 top-16 z-[100] border-b border-oud-brown/10 bg-oud-ivory shadow-soft transition",
           isOpen
             ? "pointer-events-auto translate-y-0 opacity-100"
             : "pointer-events-none -translate-y-2 opacity-0"

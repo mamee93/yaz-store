@@ -1,11 +1,12 @@
 import Link from "next/link";
+import Image from "next/image";
 import {
   Boxes,
   BellRing,
   ChartNoAxesColumnIncreasing,
   ClipboardList,
   FolderTree,
-  Image,
+  Image as ImageIcon,
   LayoutDashboard,
   Settings,
   Truck,
@@ -26,21 +27,29 @@ const adminNavItems = [
   { href: "/admin/coupons", label: "الكوبونات", icon: TicketPercent },
   { href: "/admin/shipping", label: "التوصيل", icon: Truck },
   { href: "/admin/inventory", label: "المخزون", icon: ChartNoAxesColumnIncreasing },
-  { href: "/admin/banners", label: "البنرات", icon: Image },
+  { href: "/admin/banners", label: "البنرات", icon: ImageIcon },
   { href: "/admin/settings", label: "الإعدادات", icon: Settings }
 ];
 
-export function AdminShell({ children }: { children: React.ReactNode }) {
+export function AdminShell({
+  children,
+  storeName,
+  logoUrl
+}: {
+  children: React.ReactNode;
+  storeName?: string;
+  logoUrl?: string | null;
+}) {
+  const displayName = storeName ?? siteConfig.name;
+
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f6f0e7] text-oud-ink">
       <aside className="fixed inset-y-0 right-0 z-40 hidden w-[260px] overflow-y-auto border-l border-oud-brown/10 bg-oud-pearl/95 p-4 shadow-soft lg:block">
         <Link href="/admin" className="flex items-center gap-3 rounded-oud px-2 py-3">
-          <span className="grid size-10 place-items-center rounded-oud bg-oud-brown font-display text-lg font-bold text-oud-gold">
-            ع
-          </span>
+          <AdminLogoMark logoUrl={logoUrl} storeName={displayName} />
           <span>
             <span className="block font-display text-2xl font-bold text-oud-brown">
-              {siteConfig.name}
+              {displayName}
             </span>
             <span className="block text-xs text-oud-muted">لوحة الإدارة</span>
           </span>
@@ -111,5 +120,34 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </main>
       </div>
     </div>
+  );
+}
+
+function AdminLogoMark({
+  logoUrl,
+  storeName
+}: {
+  logoUrl?: string | null;
+  storeName: string;
+}) {
+  if (logoUrl) {
+    return (
+      <span className="grid size-11 place-items-center overflow-hidden rounded-oud border border-oud-gold/35 bg-oud-ivory shadow-soft">
+        <Image
+          src={logoUrl}
+          alt={`${storeName} logo`}
+          width={44}
+          height={44}
+          unoptimized
+          className="h-full w-full object-contain p-1.5"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className="grid size-11 place-items-center rounded-oud bg-oud-brown font-display text-lg font-bold text-oud-gold">
+      ع
+    </span>
   );
 }

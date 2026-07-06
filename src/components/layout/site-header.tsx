@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { MessageCircle, Search, ShoppingBag } from "lucide-react";
 import { siteConfig } from "@/constants/site";
 import { useCart } from "@/hooks/use-cart";
@@ -14,17 +15,22 @@ export const storeNavItems = [
   { href: "/contact", label: "تواصل معنا" }
 ];
 
-export function SiteHeader({ storeName }: { storeName?: string }) {
+export function SiteHeader({
+  storeName,
+  logoUrl
+}: {
+  storeName?: string;
+  logoUrl?: string | null;
+}) {
   const { itemCount } = useCart();
   const displayName = storeName ?? siteConfig.name;
+  const normalizedLogoUrl = logoUrl?.trim() || null;
 
   return (
     <header className="sticky top-0 z-40 border-b border-oud-brown/10 bg-oud-ivory/95 backdrop-blur-xl">
       <div className="container-page flex h-16 items-center justify-between gap-3">
         <Link href="/" className="group flex items-center gap-3" aria-label={displayName}>
-          <span className="grid size-10 place-items-center rounded-oud border border-oud-gold/35 bg-oud-brown font-display text-lg font-bold text-oud-gold shadow-gold">
-            ع
-          </span>
+          <LogoMark logoUrl={normalizedLogoUrl} storeName={displayName} />
           <span className="flex flex-col leading-none">
             <span className="font-display text-2xl font-bold text-oud-brown">
               {displayName}
@@ -78,5 +84,34 @@ export function SiteHeader({ storeName }: { storeName?: string }) {
         </div>
       </div>
     </header>
+  );
+}
+
+function LogoMark({
+  logoUrl,
+  storeName
+}: {
+  logoUrl: string | null;
+  storeName: string;
+}) {
+  if (logoUrl) {
+    return (
+      <span className="grid size-11 place-items-center overflow-hidden rounded-oud border border-oud-gold/35 bg-oud-pearl shadow-gold lg:size-12">
+        <Image
+          src={logoUrl}
+          alt={`${storeName} logo`}
+          width={48}
+          height={48}
+          unoptimized
+          className="h-full w-full object-contain p-1.5"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <span className="grid size-11 place-items-center rounded-oud border border-oud-gold/35 bg-oud-brown font-display text-lg font-bold text-oud-gold shadow-gold lg:size-12 lg:text-xl">
+      ع
+    </span>
   );
 }

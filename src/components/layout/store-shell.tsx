@@ -10,12 +10,13 @@ type StoreShellProps = {
 export function StoreShell({ children, settings }: StoreShellProps) {
   const storeName = settings?.store_name ?? settings?.store_name_ar ?? undefined;
   const description = settings?.store_description ?? settings?.brand_story_ar ?? null;
+  const logoUrl = settings?.logo_url?.trim() || null;
 
   return (
     <div className="min-h-screen bg-oud-ivory text-oud-ink">
-      <SiteHeader storeName={storeName} />
+      <SiteHeader storeName={storeName} logoUrl={logoUrl} />
       <main>{children}</main>
-      <SiteFooter storeName={storeName} description={description} />
+      <SiteFooter storeName={storeName} description={description} logoUrl={logoUrl} />
     </div>
   );
 }
