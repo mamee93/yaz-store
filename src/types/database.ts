@@ -323,6 +323,25 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["shipping_zones"]["Row"]>;
         Relationships: [];
       };
+      notifications: {
+        Row: {
+          id: string;
+          type: string;
+          title: string;
+          message: string;
+          entity_type: string | null;
+          entity_id: string | null;
+          is_read: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["notifications"]["Row"]> & {
+          type: string;
+          title: string;
+          message: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notifications"]["Row"]>;
+        Relationships: [];
+      };
       inventory_movements: {
         Row: {
           id: string;

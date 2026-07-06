@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   Boxes,
+  BellRing,
   ChartNoAxesColumnIncreasing,
   ClipboardList,
   FolderTree,
@@ -12,6 +13,7 @@ import {
   Users
 } from "lucide-react";
 import { LogoutButton } from "@/components/admin/logout-button";
+import { NotificationsDropdown } from "@/components/admin/notifications-dropdown";
 import { siteConfig } from "@/constants/site";
 
 const adminNavItems = [
@@ -19,6 +21,7 @@ const adminNavItems = [
   { href: "/admin/products", label: "المنتجات", icon: Boxes },
   { href: "/admin/categories", label: "التصنيفات", icon: FolderTree },
   { href: "/admin/orders", label: "الطلبات", icon: ClipboardList },
+  { href: "/admin/notifications", label: "التنبيهات", icon: BellRing },
   { href: "/admin/customers", label: "العملاء", icon: Users },
   { href: "/admin/coupons", label: "الكوبونات", icon: TicketPercent },
   { href: "/admin/shipping", label: "التوصيل", icon: Truck },
@@ -69,6 +72,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
               <p className="text-xs text-oud-muted">واجهة تشغيل ثابتة للعرض فقط</p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <NotificationsDropdown />
               <Link
                 href="/"
                 className="inline-flex h-10 items-center justify-center whitespace-nowrap rounded-oud border border-oud-brown/10 bg-white px-4 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/35"

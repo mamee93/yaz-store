@@ -6,6 +6,7 @@ import {
   incrementCouponUsage,
   validateCouponForSubtotal
 } from "@/features/coupons/actions";
+import { createOrderNotification } from "@/features/notifications/actions";
 import { calculateShippingForCheckout } from "@/features/shipping/actions";
 import { checkoutSchema } from "@/validations/checkout-schema";
 import type { Database, Json } from "@/types/database";
@@ -281,6 +282,13 @@ export async function createCheckoutOrderAction(formData: FormData) {
     if (paymentError) {
       throw new Error("payment");
     }
+
+    await createOrderNotification({
+      orderId: order.id,
+      orderNumber,
+      customerName: checkout.fullName,
+      total
+    });
 
     if (couponResult.coupon) {
       await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.used_count);
