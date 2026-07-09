@@ -1,6 +1,13 @@
 import { z } from "zod";
 
-export const bannerPlacements = ["home_hero", "home_secondary", "offers", "category"] as const;
+export const bannerPlacements = [
+  "home_hero",
+  "home_secondary",
+  "offers",
+  "category",
+  "categories",
+  "seasonal"
+] as const;
 
 const optionalText = z.preprocess((value) => {
   if (typeof value !== "string") {
