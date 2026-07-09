@@ -125,7 +125,8 @@ export function mapCategoryToStoreCategory(category: CategoryRead): StoreCategor
     slug: category.slug,
     name: category.name_ar,
     description: category.description_ar ?? "مختارات فاخرة من عود ياز.",
-    imageTone: toCssBackground(category.image_url) ?? fallbackCategoryTone
+    imageTone: toCssBackground(category.image_url) ?? fallbackCategoryTone,
+    imageUrl: category.image_url ?? undefined
   };
 }
 
@@ -134,7 +135,8 @@ export function mapCategoryToFeaturedCategory(category: CategoryRead): FeaturedC
     href: `/categories/${category.slug}`,
     name: category.name_ar,
     description: category.description_ar ?? "مختارات فاخرة من عود ياز.",
-    accent: toCssBackground(category.image_url) ?? fallbackCategoryTone
+    accent: toCssBackground(category.image_url) ?? fallbackCategoryTone,
+    imageUrl: category.image_url ?? undefined
   };
 }
 

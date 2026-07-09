@@ -3,6 +3,7 @@ export type StoreCategory = {
   name: string;
   description: string;
   imageTone: string;
+  imageUrl?: string;
 };
 
 export type StoreProduct = {

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { CatalogToolbar } from "@/components/storefront/catalog-toolbar";
 import { ProductGrid } from "@/components/storefront/product-grid";
@@ -48,10 +49,21 @@ export default async function CategoryPage({ params }: CategoryPageProps) {
               {category.name}
             </Heading>
             <div
-              className="min-h-44 rounded-oud border border-oud-gold/25 shadow-soft"
+              className="relative min-h-44 overflow-hidden rounded-oud border border-oud-gold/25 shadow-soft"
               style={{ background: category.imageTone }}
               aria-hidden="true"
-            />
+            >
+              {category.imageUrl ? (
+                <Image
+                  src={category.imageUrl}
+                  alt=""
+                  fill
+                  sizes="(min-width: 768px) 45vw, 100vw"
+                  className="object-cover"
+                  unoptimized
+                />
+              ) : null}
+            </div>
           </div>
           <CatalogToolbar
             activeCategorySlug={category.slug}

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { Card, Container, Heading, Section } from "@/components/ui";
 
@@ -7,6 +8,7 @@ export type FeaturedCategory = {
   name: string;
   description: string;
   accent: string;
+  imageUrl?: string;
 };
 
 type FeaturedCategoriesProps = {
@@ -29,10 +31,21 @@ export function FeaturedCategories({ categories }: FeaturedCategoriesProps) {
             <Link key={category.href} href={category.href} className="group">
               <Card className="h-full overflow-hidden p-4 transition hover:-translate-y-1 hover:border-oud-gold/35 hover:shadow-gold">
                 <div
-                  className="mb-4 h-24 rounded-oud border border-oud-brown/10"
+                  className="relative mb-4 h-24 overflow-hidden rounded-oud border border-oud-brown/10"
                   style={{ background: category.accent }}
                   aria-hidden="true"
-                />
+                >
+                  {category.imageUrl ? (
+                    <Image
+                      src={category.imageUrl}
+                      alt=""
+                      fill
+                      sizes="(min-width: 1024px) 20vw, (min-width: 640px) 50vw, 100vw"
+                      className="object-cover"
+                      unoptimized
+                    />
+                  ) : null}
+                </div>
                 <div className="space-y-2">
                   <h3 className="font-display text-xl font-bold text-oud-brown">
                     {category.name}
