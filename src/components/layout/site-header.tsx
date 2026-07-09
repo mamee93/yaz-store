@@ -2,10 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { MessageCircle, Search, ShoppingBag } from "lucide-react";
+import { MessageCircle, Search, ShoppingBag, UserRound } from "lucide-react";
+import { CustomerLogoutButton } from "@/components/auth/customer-logout-button";
 import { siteConfig } from "@/constants/site";
 import { useCart } from "@/hooks/use-cart";
 import { MobileNav } from "./mobile-nav";
+import type { CustomerProfile } from "@/features/auth/queries";
 
 export const storeNavItems = [
   { href: "/", label: "الرئيسية" },
@@ -17,14 +19,17 @@ export const storeNavItems = [
 
 export function SiteHeader({
   storeName,
-  logoUrl
+  logoUrl,
+  customer
 }: {
   storeName?: string;
   logoUrl?: string | null;
+  customer?: CustomerProfile | null;
 }) {
   const { itemCount } = useCart();
   const displayName = storeName ?? siteConfig.name;
   const normalizedLogoUrl = logoUrl?.trim() || null;
+  const isCustomerLoggedIn = Boolean(customer);
 
   return (
     <header className="sticky top-0 z-40 border-b border-oud-brown/10 bg-oud-ivory/95 backdrop-blur-xl">
@@ -74,13 +79,23 @@ export function SiteHeader({
             <span className="sr-only">عدد عناصر السلة: {itemCount}</span>
           </Link>
           <Link
+            href={isCustomerLoggedIn ? "/account" : "/login"}
+            className="hidden h-9 items-center justify-center gap-2 rounded-md px-3 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/50 md:inline-flex"
+          >
+            <UserRound className="size-4" aria-hidden="true" />
+            {isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول"}
+          </Link>
+          {isCustomerLoggedIn ? (
+            <CustomerLogoutButton className="hidden h-9 px-3 text-xs md:inline-flex" compact />
+          ) : null}
+          <Link
             href="/contact"
             className="hidden h-9 items-center justify-center gap-2 rounded-md border border-oud-gold/35 bg-oud-gold/10 px-3 text-xs font-semibold text-oud-brown transition hover:bg-oud-gold/20 md:inline-flex"
           >
             <MessageCircle className="size-4" aria-hidden="true" />
             واتساب
           </Link>
-          <MobileNav items={storeNavItems} />
+          <MobileNav items={storeNavItems} isCustomerLoggedIn={isCustomerLoggedIn} />
         </div>
       </div>
     </header>

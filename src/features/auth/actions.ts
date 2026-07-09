@@ -1,26 +1,114 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 
-function loginRedirect(message: string): never {
-  redirect(`/login?error=${encodeURIComponent(message)}`);
+function loginRedirect(path: string, message: string): never {
+  redirect(`${path}?error=${encodeURIComponent(message)}`);
 }
 
-export async function loginAction(formData: FormData) {
+export async function customerLoginAction(formData: FormData) {
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    loginRedirect("لم يتم إعداد اتصال Supabase بعد.");
+    loginRedirect("/login", "لم يتم إعداد اتصال Supabase بعد.");
   }
 
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
 
   if (!email) {
-    loginRedirect("يرجى إدخال البريد الإلكتروني.");
+    loginRedirect("/login", "يرجى إدخال البريد الإلكتروني.");
   }
 
   if (!password) {
-    loginRedirect("يرجى إدخال كلمة المرور.");
+    loginRedirect("/login", "يرجى إدخال كلمة المرور.");
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password
+  });
+
+  if (error) {
+    loginRedirect("/login", "بيانات الدخول غير صحيحة.");
+  }
+
+  redirect("/account");
+}
+
+export async function registerCustomerAction(formData: FormData) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    loginRedirect("/register", "لم يتم إعداد اتصال Supabase بعد.");
+  }
+
+  const fullName = String(formData.get("fullName") ?? "").trim();
+  const phone = String(formData.get("phone") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!fullName) {
+    loginRedirect("/register", "يرجى إدخال الاسم الكامل.");
+  }
+
+  if (!phone) {
+    loginRedirect("/register", "يرجى إدخال رقم الهاتف.");
+  }
+
+  if (!email) {
+    loginRedirect("/register", "يرجى إدخال البريد الإلكتروني.");
+  }
+
+  if (password.length < 6) {
+    loginRedirect("/register", "كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
+  }
+
+  const supabase = await createClient();
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: {
+      data: {
+        full_name: fullName,
+        phone
+      }
+    }
+  });
+
+  if (error || !data.user) {
+    loginRedirect("/register", "تعذر إنشاء الحساب. تحقق من البيانات أو جرّب بريدا آخر.");
+  }
+
+  const admin = createAdminClient();
+  await admin.from("customers").upsert(
+    {
+      auth_user_id: data.user.id,
+      full_name: fullName,
+      phone,
+      email
+    } as never,
+    {
+      onConflict: "auth_user_id"
+    }
+  );
+
+  redirect("/account");
+}
+
+export async function adminLoginAction(formData: FormData) {
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    loginRedirect("/admin/login", "لم يتم إعداد اتصال Supabase بعد.");
+  }
+
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!email) {
+    loginRedirect("/admin/login", "يرجى إدخال البريد الإلكتروني.");
+  }
+
+  if (!password) {
+    loginRedirect("/admin/login", "يرجى إدخال كلمة المرور.");
   }
 
   const supabase = await createClient();
@@ -32,7 +120,7 @@ export async function loginAction(formData: FormData) {
   const user = data.user;
 
   if (error || !user) {
-    loginRedirect("بيانات الدخول غير صحيحة.");
+    loginRedirect("/admin/login", "بيانات الدخول غير صحيحة.");
   }
 
   const { data: admin, error: adminError } = await supabase
@@ -44,19 +132,25 @@ export async function loginAction(formData: FormData) {
 
   if (adminError || !admin) {
     await supabase.auth.signOut();
-    loginRedirect("هذا الحساب غير مصرح له بدخول لوحة الإدارة.");
+    loginRedirect("/admin/login", "هذا الحساب غير مصرح له بدخول لوحة الإدارة.");
   }
 
   if (!admin.is_active) {
     await supabase.auth.signOut();
-    loginRedirect("حساب الإدارة غير مفعّل حالياً.");
+    loginRedirect("/admin/login", "حساب الإدارة غير مفعّل حالياً.");
   }
 
   redirect("/admin");
 }
 
-export async function logoutAction() {
+export async function customerLogoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
   redirect("/login?message=تم تسجيل الخروج بنجاح.");
+}
+
+export async function adminLogoutAction() {
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  redirect("/admin/login?message=تم تسجيل الخروج بنجاح.");
 }

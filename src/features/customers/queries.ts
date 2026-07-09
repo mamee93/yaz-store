@@ -1,4 +1,5 @@
-import { requireAdmin } from "@/features/auth/queries";
+import { getCurrentCustomer, requireAdmin } from "@/features/auth/queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -29,6 +30,85 @@ export type AdminCustomerDetail = AdminCustomerListItem & {
   last_order: CustomerOrderRow | null;
 };
 
+export type CustomerAccount = {
+  profile: Awaited<ReturnType<typeof getCurrentCustomer>>;
+  orders: CustomerOrderRow[];
+};
+
+export async function getCustomerAccount() {
+  const profile = await getCurrentCustomer();
+
+  if (!profile) {
+    return null;
+  }
+
+  if (!profile.id && !profile.email) {
+    return {
+      profile,
+      orders: []
+    };
+  }
+
+  const supabase = createAdminClient();
+  const customerIds = await getCustomerIdsForAccount({
+    id: profile.id,
+    email: profile.email
+  });
+
+  if (customerIds.length === 0) {
+    return {
+      profile,
+      orders: []
+    };
+  }
+
+  const { data, error } = await supabase
+    .from("orders")
+    .select("id,order_number,customer_id,status,payment_method,payment_status,total_omr,created_at")
+    .in("customer_id", customerIds)
+    .order("created_at", { ascending: false })
+    .limit(8)
+    .returns<CustomerOrderRow[]>();
+
+  if (error) {
+    console.error("Failed to read customer account orders", error);
+    return {
+      profile,
+      orders: []
+    };
+  }
+
+  return {
+    profile,
+    orders: data ?? []
+  };
+}
+
+async function getCustomerIdsForAccount({ id, email }: { id: string | null; email: string | null }) {
+  const ids = new Set<string>();
+
+  if (id) {
+    ids.add(id);
+  }
+
+  if (!email) {
+    return [...ids];
+  }
+
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("email", email)
+    .returns<Array<{ id: string }>>();
+
+  for (const customer of data ?? []) {
+    ids.add(customer.id);
+  }
+
+  return [...ids];
+}
+
 export async function getAdminCustomers(search?: string) {
   const admin = await requireAdmin();
 
@@ -41,7 +121,7 @@ export async function getAdminCustomers(search?: string) {
     await Promise.all([
       supabase
         .from("customers")
-        .select("id,full_name,phone,email,whatsapp_number,notes,created_at,updated_at")
+        .select("id,auth_user_id,full_name,phone,email,whatsapp_number,notes,created_at,updated_at")
         .order("created_at", { ascending: false })
         .returns<CustomerRow[]>(),
       supabase
@@ -81,7 +161,7 @@ export async function getAdminCustomerById(customerId: string) {
   ] = await Promise.all([
     supabase
       .from("customers")
-      .select("id,full_name,phone,email,whatsapp_number,notes,created_at,updated_at")
+      .select("id,auth_user_id,full_name,phone,email,whatsapp_number,notes,created_at,updated_at")
       .eq("id", customerId)
       .maybeSingle()
       .returns<CustomerRow | null>(),

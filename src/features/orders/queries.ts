@@ -21,6 +21,8 @@ export type AdminOrderDetail = AdminOrderListItem & {
   subtotal_omr: number;
   delivery_fee_omr: number;
   discount_omr: number;
+  tax_omr: number;
+  coupon_code: string | null;
   delivery_method: "pickup_office" | "home_delivery" | null;
   customer_notes: string | null;
   admin_notes: string | null;
@@ -88,7 +90,7 @@ export async function getAdminOrderById(orderId: string) {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id,order_number,customer_id,address_id,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,total_omr,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,admin_notes,stock_deducted_at,confirmed_at,completed_at,cancelled_at,created_at,order_items(id,product_id,product_name_ar_snapshot,product_name_en_snapshot,sku_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot),payments(id,method,status,amount_omr,provider,created_at)"
+      "id,order_number,customer_id,address_id,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,tax_omr,total_omr,coupon_code,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,admin_notes,stock_deducted_at,confirmed_at,completed_at,cancelled_at,created_at,order_items(id,product_id,product_name_ar_snapshot,product_name_en_snapshot,sku_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot),payments(id,method,status,amount_omr,provider,created_at)"
     )
     .eq("id", orderId)
     .maybeSingle()

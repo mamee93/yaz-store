@@ -10,7 +10,10 @@ export type CheckoutOrderRead = {
   subtotal_omr: number;
   delivery_fee_omr: number;
   discount_omr: number;
+  tax_omr: number;
   total_omr: number;
+  coupon_code: string | null;
+  delivery_method: "pickup_office" | "home_delivery" | null;
   customer_name_snapshot: string;
   customer_phone_snapshot: string;
   delivery_address_snapshot: Json;
@@ -32,7 +35,7 @@ export async function getOrderByOrderNumber(orderNumber: string) {
   const { data, error } = await supabase
     .from("orders")
     .select(
-      "id,order_number,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,total_omr,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,created_at,order_items(id,product_name_ar_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot)"
+      "id,order_number,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,tax_omr,total_omr,coupon_code,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,created_at,order_items(id,product_name_ar_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot)"
     )
     .eq("order_number", orderNumber)
     .maybeSingle()

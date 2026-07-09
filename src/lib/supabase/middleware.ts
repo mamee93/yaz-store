@@ -18,10 +18,11 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const pathname = request.nextUrl.pathname;
   const isAdminRoute = pathname.startsWith("/admin");
-  const isLoginRoute = pathname === "/login";
+  const isAdminLoginRoute = pathname === "/admin/login";
+  const isLoginRoute = pathname === "/login" || isAdminLoginRoute;
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (isAdminRoute) {
+    if (isAdminRoute && !isAdminLoginRoute) {
       return redirectToLogin(request, "لم يتم إعداد اتصال Supabase بعد.");
     }
 
@@ -53,7 +54,7 @@ export async function updateSession(request: NextRequest) {
     data: { user }
   } = await supabase.auth.getUser();
 
-  if (isAdminRoute && !user) {
+  if (isAdminRoute && !isAdminLoginRoute && !user) {
     return withSessionCookies(response, redirectToLogin(request));
   }
 
@@ -74,7 +75,7 @@ export async function updateSession(request: NextRequest) {
 
   const isActiveAdmin = Boolean(admin?.is_active);
 
-  if (isAdminRoute && !isActiveAdmin) {
+  if (isAdminRoute && !isAdminLoginRoute && !isActiveAdmin) {
     await supabase.auth.signOut();
     return withSessionCookies(
       response,
@@ -82,7 +83,7 @@ export async function updateSession(request: NextRequest) {
     );
   }
 
-  if (isLoginRoute && isActiveAdmin) {
+  if (isAdminLoginRoute && isActiveAdmin) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = "/admin";
     redirectUrl.search = "";
@@ -94,7 +95,7 @@ export async function updateSession(request: NextRequest) {
 
 function redirectToLogin(request: NextRequest, error?: string) {
   const redirectUrl = request.nextUrl.clone();
-  redirectUrl.pathname = "/login";
+  redirectUrl.pathname = request.nextUrl.pathname.startsWith("/admin") ? "/admin/login" : "/login";
   redirectUrl.search = "";
 
   if (request.nextUrl.pathname !== "/login") {

@@ -18,6 +18,11 @@ const paymentMethodLabels = {
   tap_payments: "دفع إلكتروني"
 };
 
+const deliveryMethodLabels = {
+  pickup_office: "استلام من المكتب",
+  home_delivery: "توصيل للمنزل"
+};
+
 export default async function OrderConfirmationPage({ params }: OrderConfirmationPageProps) {
   const { orderNumber } = await params;
   const order = await getOrderByOrderNumber(orderNumber);
@@ -150,7 +155,15 @@ function OrderReceipt({ order }: { order: NonNullable<Awaited<ReturnType<typeof 
 
       <div className="mt-5 space-y-3 border-t border-oud-brown/10 pt-5 text-sm">
         <SummaryRow label="المجموع الفرعي" value={<Price value={order.subtotal_omr} />} />
-        <SummaryRow label="التوصيل" value={<Price value={order.delivery_fee_omr} />} />
+        <SummaryRow
+          label={order.delivery_method ? deliveryMethodLabels[order.delivery_method] : "التوصيل"}
+          value={<Price value={order.delivery_fee_omr} />}
+        />
+        {order.coupon_code ? (
+          <SummaryRow label="كود الخصم" value={<span dir="ltr">{order.coupon_code}</span>} />
+        ) : null}
+        <SummaryRow label="الخصم" value={<Price value={order.discount_omr} />} />
+        <SummaryRow label="الضريبة" value={<Price value={order.tax_omr} />} />
         <SummaryRow label="الإجمالي" value={<Price value={order.total_omr} className="text-lg" />} />
       </div>
     </Card>

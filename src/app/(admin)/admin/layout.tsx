@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const [admin, settings] = await Promise.all([requireAdmin(), getAdminStoreSettings()]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin/login");
   }
 
   const storeName = settings?.store_name ?? settings?.store_name_ar ?? undefined;

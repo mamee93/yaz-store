@@ -139,6 +139,7 @@ export type Database = {
       customers: {
         Row: {
           id: string;
+          auth_user_id: string | null;
           full_name: string;
           phone: string;
           email: string | null;

@@ -109,7 +109,13 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
             <p className="font-semibold text-oud-brown">{order.customer_name_snapshot}</p>
             <p dir="ltr">{order.customer_phone_snapshot}</p>
             <p>{paymentMethodLabels[order.payment_method]}</p>
-            {order.delivery_method ? <p>{deliveryMethodLabels[order.delivery_method]}</p> : null}
+            {order.delivery_method || address.delivery_method_label ? (
+              <p>
+                {order.delivery_method
+                  ? deliveryMethodLabels[order.delivery_method]
+                  : address.delivery_method_label}
+              </p>
+            ) : null}
           </div>
         </Card>
 
@@ -118,7 +124,11 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
           <div className="mt-4 space-y-3 text-sm">
             <SummaryRow label="المجموع الفرعي" value={<Price value={order.subtotal_omr} />} />
             <SummaryRow label="التوصيل" value={<Price value={order.delivery_fee_omr} />} />
+            {order.coupon_code ? (
+              <SummaryRow label="كود الخصم" value={<span dir="ltr">{order.coupon_code}</span>} />
+            ) : null}
             <SummaryRow label="الخصم" value={<Price value={order.discount_omr} />} />
+            <SummaryRow label="الضريبة" value={<Price value={order.tax_omr} />} />
             <SummaryRow label="الإجمالي" value={<Price value={order.total_omr} className="text-lg" />} />
           </div>
         </Card>
@@ -171,6 +181,7 @@ function parseAddressSnapshot(snapshot: AdminOrderDetail["delivery_address_snaps
       wilayat: "غير محدد",
       area: null,
       address_line_1: "غير محدد",
+      delivery_method_label: null,
       delivery_notes: null
     };
   }
@@ -181,6 +192,7 @@ function parseAddressSnapshot(snapshot: AdminOrderDetail["delivery_address_snaps
     wilayat: toDisplayText(snapshot.wilayat),
     area: toNullableDisplayText(snapshot.area),
     address_line_1: toDisplayText(snapshot.address_line_1),
+    delivery_method_label: toNullableDisplayText(snapshot.delivery_method_label),
     delivery_notes: toNullableDisplayText(snapshot.delivery_notes)
   };
 }

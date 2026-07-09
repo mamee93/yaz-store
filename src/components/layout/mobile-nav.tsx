@@ -2,7 +2,15 @@
 
 import { useEffect, useId, useState } from "react";
 import Link from "next/link";
-import { Menu, Search, ShoppingBag, X, MessageCircle } from "lucide-react";
+import {
+  Menu,
+  MessageCircle,
+  Search,
+  ShoppingBag,
+  UserRound,
+  X
+} from "lucide-react";
+import { CustomerLogoutButton } from "@/components/auth/customer-logout-button";
 import { cn } from "@/utils/cn";
 
 type MobileNavProps = {
@@ -10,9 +18,10 @@ type MobileNavProps = {
     href: string;
     label: string;
   }>;
+  isCustomerLoggedIn?: boolean;
 };
 
-export function MobileNav({ items }: MobileNavProps) {
+export function MobileNav({ items, isCustomerLoggedIn = false }: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuId = useId();
 
@@ -93,6 +102,17 @@ export function MobileNav({ items }: MobileNavProps) {
               <ShoppingBag className="size-4" aria-hidden="true" />
               السلة
             </Link>
+            <Link
+              href={isCustomerLoggedIn ? "/account" : "/login"}
+              className="flex items-center gap-3 rounded-oud px-3 py-3 text-sm font-semibold text-oud-muted hover:bg-oud-beige/45 hover:text-oud-brown"
+              onClick={() => setIsOpen(false)}
+            >
+              <UserRound className="size-4" aria-hidden="true" />
+              {isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول"}
+            </Link>
+            {isCustomerLoggedIn ? (
+              <CustomerLogoutButton className="w-full justify-center" />
+            ) : null}
             <Link
               href="/contact"
               className="mt-2 inline-flex h-11 w-full items-center justify-center gap-2 rounded-oud bg-oud-brown px-5 text-sm font-semibold text-oud-ivory shadow-soft transition hover:bg-oud-coffee"
