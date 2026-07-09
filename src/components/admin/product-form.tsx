@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Save, Trash2 } from "lucide-react";
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import type { CategoryAdminRead } from "@/features/categories/queries";
 import type { ProductRow } from "@/features/products/queries";
@@ -205,6 +206,22 @@ export function ProductForm({
             />
           </div>
         </Card>
+
+        {!isEdit ? (
+          <Card className="p-5 shadow-none">
+            <h2 className="font-display text-2xl font-bold text-oud-brown">صور المنتج</h2>
+            <div className="mt-5">
+              <ImageUploadField
+                name="images"
+                label="رفع صور المنتج"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                helpText="يمكنك اختيار أكثر من صورة. أول صورة تصبح الصورة الأساسية، ويمكن تعديل الترتيب بعد إنشاء المنتج."
+                previewAlt="معاينة صور المنتج"
+              />
+            </div>
+          </Card>
+        ) : null}
 
         <Card className="space-y-3 p-5 shadow-none">
           <Button type="submit" className="w-full" leftIcon={<Save className="size-4" />}>

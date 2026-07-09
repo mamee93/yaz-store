@@ -116,6 +116,7 @@ export type Database = {
           id: string;
           product_id: string;
           storage_path: string;
+          image_url: string | null;
           public_url: string | null;
           alt_text_ar: string | null;
           alt_text_en: string | null;

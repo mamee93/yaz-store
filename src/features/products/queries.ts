@@ -7,6 +7,7 @@ import type { StoreProduct } from "@/components/storefront/static-catalog";
 export type ProductImageRow = {
   id: string;
   product_id: string;
+  image_url: string | null;
   public_url: string | null;
   storage_path: string;
   alt_text_ar: string | null;
@@ -86,7 +87,7 @@ const productSelect = `
   created_at,
   updated_at,
   categories(name_ar,slug),
-  product_images(id,product_id,public_url,storage_path,alt_text_ar,sort_order,is_primary,created_at,updated_at)
+  product_images(id,product_id,image_url,public_url,storage_path,alt_text_ar,sort_order,is_primary,created_at,updated_at)
 `;
 
 export async function getActiveProducts() {
@@ -248,7 +249,7 @@ function getSortedProductImages(images: ProductImageRow[] | null) {
   }
 
   return [...images]
-    .filter((image) => Boolean(image.public_url))
+    .filter((image) => Boolean(image.image_url ?? image.public_url))
     .sort((a, b) => {
       if (a.is_primary && !b.is_primary) {
         return -1;
@@ -262,7 +263,7 @@ function getSortedProductImages(images: ProductImageRow[] | null) {
     })
     .map((image) => ({
       id: image.id,
-      url: image.public_url as string,
+      url: (image.image_url ?? image.public_url) as string,
       alt: image.alt_text_ar ?? "ØµÙˆØ±Ø© Ø§Ù„Ù…Ù†ØªØ¬",
       isPrimary: image.is_primary
     }));

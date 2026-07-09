@@ -1,8 +1,9 @@
-import { ImageIcon, Star, Trash2, Upload } from "lucide-react";
+import { ArrowDown, ArrowUp, ImageIcon, Star, Trash2, Upload } from "lucide-react";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
 import {
   deleteProductImageAction,
+  moveProductImageAction,
   setPrimaryProductImageAction,
   uploadProductImagesAction
 } from "@/features/products/image-actions";
@@ -15,27 +16,17 @@ type ProductImageUploaderProps = {
 
 export function ProductImageUploader({ productId, images }: ProductImageUploaderProps) {
   const uploadAction = uploadProductImagesAction.bind(null, productId);
-  const sortedImages = [...images].sort((a, b) => {
-    if (a.is_primary && !b.is_primary) {
-      return -1;
-    }
-
-    if (!a.is_primary && b.is_primary) {
-      return 1;
-    }
-
-    return a.sort_order - b.sort_order;
-  });
+  const sortedImages = [...images].sort((a, b) => a.sort_order - b.sort_order);
 
   return (
     <Card className="space-y-5 p-5 shadow-none">
       <div>
         <p className="text-xs font-semibold text-oud-gold">صور المنتج</p>
         <h2 className="mt-2 font-display text-2xl font-bold text-oud-brown">
-          إدارة صور المنتج
+          إدارة معرض المنتج
         </h2>
         <p className="mt-2 text-sm leading-7 text-oud-muted">
-          ارفع صور JPG أو PNG أو WEBP بحجم لا يتجاوز 5MB للصورة الواحدة.
+          ارفع عدة صور، اختر الصورة الأساسية، وغير ترتيب الصور في معرض المنتج.
         </p>
       </div>
 
@@ -56,15 +47,18 @@ export function ProductImageUploader({ productId, images }: ProductImageUploader
       {sortedImages.length === 0 ? (
         <EmptyState
           title="لا توجد صور بعد"
-          description="ستظهر الصور هنا بعد رفعها، وستصبح أول صورة مرفوعة هي الصورة الأساسية."
+          description="ستظهر الصور هنا بعد رفعها. أول صورة مرفوعة تصبح الصورة الأساسية تلقائيا."
           icon={<ImageIcon className="size-5" aria-hidden="true" />}
           className="py-8"
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {sortedImages.map((image) => {
+            const imageUrl = image.image_url ?? image.public_url;
             const deleteAction = deleteProductImageAction.bind(null, image.id);
             const setPrimaryAction = setPrimaryProductImageAction.bind(null, image.id);
+            const moveUpAction = moveProductImageAction.bind(null, image.id, "up");
+            const moveDownAction = moveProductImageAction.bind(null, image.id, "down");
 
             return (
               <div
@@ -72,12 +66,12 @@ export function ProductImageUploader({ productId, images }: ProductImageUploader
                 className="overflow-hidden rounded-oud border border-oud-brown/10 bg-oud-pearl"
               >
                 <div className="aspect-[4/3] bg-oud-beige/45">
-                  {image.public_url ? (
+                  {imageUrl ? (
                     <div
                       role="img"
                       aria-label={image.alt_text_ar ?? "صورة المنتج"}
                       className="h-full w-full object-cover"
-                      style={{ background: `url("${image.public_url}") center/cover` }}
+                      style={{ background: `url("${imageUrl}") center/cover` }}
                     />
                   ) : (
                     <div className="grid h-full place-items-center text-oud-muted">
@@ -93,6 +87,26 @@ export function ProductImageUploader({ productId, images }: ProductImageUploader
                     {image.is_primary ? <Badge variant="gold">أساسية</Badge> : null}
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <form action={moveUpAction}>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="secondary"
+                        leftIcon={<ArrowUp className="size-4" />}
+                      >
+                        أعلى
+                      </Button>
+                    </form>
+                    <form action={moveDownAction}>
+                      <Button
+                        type="submit"
+                        size="sm"
+                        variant="secondary"
+                        leftIcon={<ArrowDown className="size-4" />}
+                      >
+                        أسفل
+                      </Button>
+                    </form>
                     {!image.is_primary ? (
                       <form action={setPrimaryAction}>
                         <Button

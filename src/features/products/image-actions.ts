@@ -13,6 +13,7 @@ type ProductPathRow = {
   id: string;
   slug: string;
   category_id: string;
+  name_ar: string;
   categories: {
     slug: string;
   } | null;
@@ -23,28 +24,44 @@ type ProductImagePathRow = {
   product_id: string;
   storage_path: string;
   is_primary: boolean;
+  sort_order: number;
 };
 
 type ProductImageCountRow = {
   id: string;
 };
 
+type UploadResult =
+  | { ok: true }
+  | {
+      ok: false;
+      error: string;
+    };
+
 export async function uploadProductImagesAction(productId: string, formData: FormData) {
   await assertAdmin();
 
-  const files = formData
-    .getAll("images")
-    .filter((file): file is File => file instanceof File && file.size > 0);
+  const files = await getProductImageFiles(formData);
 
   if (files.length === 0) {
     redirectWithMessage(productId, "error", "اختر صورة واحدة على الأقل.");
   }
 
+  const result = await uploadProductImageFiles(productId, files);
+
+  if (!result.ok) {
+    redirectWithMessage(productId, "error", result.error);
+  }
+
+  redirectWithMessage(productId, "success", "تم رفع الصور بنجاح.");
+}
+
+export async function uploadProductImageFiles(productId: string, files: File[]): Promise<UploadResult> {
   for (const file of files) {
     const validationError = validateImage(file);
 
     if (validationError) {
-      redirectWithMessage(productId, "error", validationError);
+      return { ok: false, error: validationError };
     }
   }
 
@@ -52,7 +69,7 @@ export async function uploadProductImagesAction(productId: string, formData: For
   const product = await getProductPath(productId);
 
   if (!product) {
-    redirectWithMessage(productId, "error", "المنتج غير موجود.");
+    return { ok: false, error: "المنتج غير موجود." };
   }
 
   const existingImages = await getProductImageCount(productId);
@@ -70,7 +87,10 @@ export async function uploadProductImagesAction(productId: string, formData: For
 
     if (uploadError) {
       await cleanupUploadedPaths(uploadedPaths);
-      redirectWithMessage(productId, "error", "تعذر رفع الصورة. تحقق من إعدادات التخزين.");
+      return {
+        ok: false,
+        error: "تعذر رفع الصورة. تحقق من إعدادات التخزين."
+      };
     }
 
     uploadedPaths.push(storagePath);
@@ -80,6 +100,7 @@ export async function uploadProductImagesAction(productId: string, formData: For
     const { error: insertError } = await supabase.from("product_images").insert({
       product_id: productId,
       storage_path: storagePath,
+      image_url: publicUrlData.publicUrl,
       public_url: publicUrlData.publicUrl,
       alt_text_ar: product.name_ar,
       sort_order: existingImages.length + index,
@@ -88,12 +109,15 @@ export async function uploadProductImagesAction(productId: string, formData: For
 
     if (insertError) {
       await cleanupUploadedPaths(uploadedPaths);
-      redirectWithMessage(productId, "error", "تم رفع الصورة لكن تعذر حفظها في المنتج.");
+      return {
+        ok: false,
+        error: "تم رفع الصورة لكن تعذر حفظها في المنتج."
+      };
     }
   }
 
   await revalidateProductImagePaths(product);
-  redirectWithMessage(productId, "success", "تم رفع الصور بنجاح.");
+  return { ok: true };
 }
 
 export async function deleteProductImageAction(imageId: string) {
@@ -173,6 +197,53 @@ export async function setPrimaryProductImageAction(imageId: string) {
   redirectWithMessage(image.product_id, "success", "تم تعيين الصورة الأساسية.");
 }
 
+export async function moveProductImageAction(imageId: string, direction: "up" | "down") {
+  await assertAdmin();
+
+  const image = await getProductImage(imageId);
+
+  if (!image) {
+    redirect("/admin/products");
+  }
+
+  const siblings = await getProductImagesForOrdering(image.product_id);
+  const currentIndex = siblings.findIndex((item) => item.id === image.id);
+  const target = siblings[direction === "up" ? currentIndex - 1 : currentIndex + 1];
+
+  if (currentIndex === -1 || !target) {
+    redirectWithMessage(image.product_id, "success", "لم يتغير ترتيب الصور.");
+  }
+
+  const supabase = createAdminClient();
+  const { error: firstError } = await supabase
+    .from("product_images")
+    .update({ sort_order: target.sort_order } as never)
+    .eq("id", image.id);
+
+  const { error: secondError } = await supabase
+    .from("product_images")
+    .update({ sort_order: image.sort_order } as never)
+    .eq("id", target.id);
+
+  if (firstError || secondError) {
+    redirectWithMessage(image.product_id, "error", "تعذر تحديث ترتيب الصور.");
+  }
+
+  const product = await getProductPath(image.product_id);
+
+  if (product) {
+    await revalidateProductImagePaths(product);
+  }
+
+  redirectWithMessage(image.product_id, "success", "تم تحديث ترتيب الصور.");
+}
+
+export async function getProductImageFiles(formData: FormData) {
+  return formData
+    .getAll("images")
+    .filter((file): file is File => file instanceof File && file.size > 0);
+}
+
 async function assertAdmin() {
   const admin = await requireAdminRole(["owner", "manager"]);
 
@@ -213,7 +284,7 @@ async function getProductPath(productId: string) {
     .eq("id", productId)
     .is("deleted_at", null)
     .maybeSingle()
-    .returns<(ProductPathRow & { name_ar: string }) | null>();
+    .returns<ProductPathRow | null>();
 
   return data;
 }
@@ -222,7 +293,7 @@ async function getProductImage(imageId: string) {
   const supabase = createAdminClient();
   const { data } = await supabase
     .from("product_images")
-    .select("id,product_id,storage_path,is_primary")
+    .select("id,product_id,storage_path,is_primary,sort_order")
     .eq("id", imageId)
     .maybeSingle()
     .returns<ProductImagePathRow | null>();
@@ -237,6 +308,19 @@ async function getProductImageCount(productId: string) {
     .select("id")
     .eq("product_id", productId)
     .returns<ProductImageCountRow[]>();
+
+  return data ?? [];
+}
+
+async function getProductImagesForOrdering(productId: string) {
+  const supabase = createAdminClient();
+  const { data } = await supabase
+    .from("product_images")
+    .select("id,product_id,storage_path,is_primary,sort_order")
+    .eq("product_id", productId)
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: true })
+    .returns<ProductImagePathRow[]>();
 
   return data ?? [];
 }

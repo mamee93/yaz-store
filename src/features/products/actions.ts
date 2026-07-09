@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole } from "@/features/auth/queries";
+import { getProductImageFiles, uploadProductImageFiles } from "@/features/products/image-actions";
 import { createClient } from "@/lib/supabase/server";
 import { productSchema } from "@/validations/product-schema";
 import type { Database } from "@/types/database";
@@ -54,6 +55,19 @@ export async function createProductAction(formData: FormData) {
   }
 
   const createdProduct = data as ProductPathRow;
+  const imageFiles = await getProductImageFiles(formData);
+
+  if (imageFiles.length > 0) {
+    const imageUpload = await uploadProductImageFiles(createdProduct.id, imageFiles);
+
+    if (!imageUpload.ok) {
+      redirectWithMessage(
+        `/admin/products/${createdProduct.id}/edit`,
+        "error",
+        `تم إنشاء المنتج لكن تعذر رفع الصور: ${imageUpload.error}`
+      );
+    }
+  }
 
   await revalidateProductPaths(createdProduct.slug, createdProduct.category_id);
   redirectWithMessage(

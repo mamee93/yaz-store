@@ -121,7 +121,11 @@ export function ProductTable({ products }: ProductTableProps) {
 function getProductImageBackground(product: ProductRow) {
   const primaryImage = product.product_images?.find((image) => image.is_primary);
   const fallbackImage = product.product_images?.[0];
-  const imageUrl = primaryImage?.public_url ?? fallbackImage?.public_url;
+  const imageUrl =
+    primaryImage?.image_url ??
+    primaryImage?.public_url ??
+    fallbackImage?.image_url ??
+    fallbackImage?.public_url;
 
   return imageUrl ? `url("${imageUrl}") center/cover` : undefined;
 }
