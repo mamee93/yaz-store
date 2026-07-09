@@ -1,5 +1,5 @@
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
-import { BannerImageField } from "@/components/admin/banner-image-field";
 import {
   createBannerAction,
   toggleBannerStatusAction,
@@ -37,7 +37,13 @@ export function BannerManagement({ banners }: BannerManagementProps) {
             نشط
           </label>
           <div className="md:col-span-2">
-            <BannerImageField required />
+            <ImageUploadField
+              name="image"
+              label="صورة البنر"
+              required
+              helpText="PNG, JPG, WEBP, SVG. الحد الأقصى 5MB."
+              previewAlt="معاينة صورة البنر"
+            />
           </div>
           <div className="md:col-span-2">
             <Button type="submit">حفظ البنر</Button>
@@ -86,7 +92,13 @@ function BannerEditCard({ banner }: { banner: BannerRow }) {
       </div>
 
       <form action={updateAction} className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)]">
-        <BannerImageField currentImageUrl={banner.image_url} label="تغيير الصورة" />
+        <ImageUploadField
+          name="image"
+          label="تغيير الصورة"
+          currentImageUrl={banner.image_url}
+          helpText="اتركها بدون اختيار للحفاظ على الصورة الحالية."
+          previewAlt="معاينة صورة البنر"
+        />
         <div className="grid min-w-0 gap-4 md:grid-cols-2">
           <Input label="العنوان" name="title_ar" defaultValue={banner.title_ar} required />
           <Input label="نص الزر" name="button_label_ar" defaultValue={banner.button_label_ar ?? ""} />

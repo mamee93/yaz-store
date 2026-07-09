@@ -1,4 +1,5 @@
 import { Save, Trash2 } from "lucide-react";
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Badge, Button, Card, EmptyState, Input, Textarea } from "@/components/ui";
 import {
   createCategoryAction,
@@ -64,52 +65,54 @@ export function CategoryManagement({ categories }: CategoryManagementProps) {
                     </div>
                   </div>
 
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <Input
-                      label="اسم التصنيف"
-                      name="name_ar"
-                      defaultValue={category.name_ar}
-                      required
+                  <div className="grid gap-4 md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)]">
+                    <ImageUploadField
+                      name="image"
+                      label="صورة التصنيف"
+                      currentImageUrl={category.image_url}
+                      helpText="اتركها بدون اختيار للحفاظ على الصورة الحالية."
+                      previewAlt={`معاينة صورة ${category.name_ar}`}
                     />
-                    <Input
-                      label="Slug"
-                      name="slug"
-                      defaultValue={category.slug}
-                      dir="ltr"
-                      required
-                    />
-                    <Input
-                      label="رابط الصورة"
-                      name="image_url"
-                      defaultValue={category.image_url ?? ""}
-                      dir="ltr"
-                    />
-                    <Input
-                      label="ترتيب الظهور"
-                      name="sort_order"
-                      type="number"
-                      min="0"
-                      defaultValue={category.sort_order}
-                    />
-                    <Textarea
-                      label="الوصف"
-                      name="description_ar"
-                      defaultValue={category.description_ar ?? ""}
-                      className="md:col-span-2"
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <CheckboxField
-                      name="is_active"
-                      label="تصنيف نشط"
-                      defaultChecked={category.is_active}
-                    />
-                    <CheckboxField
-                      name="is_featured"
-                      label="تصنيف مميز"
-                      defaultChecked={category.is_featured}
-                    />
+                    <div className="grid gap-4 md:grid-cols-2">
+                      <Input
+                        label="اسم التصنيف"
+                        name="name_ar"
+                        defaultValue={category.name_ar}
+                        required
+                      />
+                      <Input
+                        label="Slug"
+                        name="slug"
+                        defaultValue={category.slug}
+                        dir="ltr"
+                        required
+                      />
+                      <Input
+                        label="ترتيب الظهور"
+                        name="sort_order"
+                        type="number"
+                        min="0"
+                        defaultValue={category.sort_order}
+                      />
+                      <div className="flex flex-wrap items-end gap-3">
+                        <CheckboxField
+                          name="is_active"
+                          label="تصنيف نشط"
+                          defaultChecked={category.is_active}
+                        />
+                        <CheckboxField
+                          name="is_featured"
+                          label="تصنيف مميز"
+                          defaultChecked={category.is_featured}
+                        />
+                      </div>
+                      <Textarea
+                        label="الوصف"
+                        name="description_ar"
+                        defaultValue={category.description_ar ?? ""}
+                        className="md:col-span-2"
+                      />
+                    </div>
                   </div>
                 </form>
               </Card>
@@ -123,7 +126,12 @@ export function CategoryManagement({ categories }: CategoryManagementProps) {
         <form action={createCategoryAction} className="mt-5 space-y-4">
           <Input label="اسم التصنيف" name="name_ar" placeholder="مثال: العود" required />
           <Input label="Slug" name="slug" placeholder="oud" dir="ltr" required />
-          <Input label="رابط الصورة" name="image_url" dir="ltr" />
+          <ImageUploadField
+            name="image"
+            label="صورة التصنيف"
+            helpText="PNG, JPG, WEBP, SVG. الحد الأقصى 5MB."
+            previewAlt="معاينة صورة التصنيف"
+          />
           <Input label="ترتيب الظهور" name="sort_order" type="number" min="0" defaultValue={0} />
           <Textarea label="الوصف" name="description_ar" />
           <CheckboxField name="is_active" label="تصنيف نشط" defaultChecked />

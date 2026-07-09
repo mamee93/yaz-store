@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdminRole } from "@/features/auth/queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { categorySchema } from "@/validations/category-schema";
 import type { Database } from "@/types/database";
@@ -11,9 +12,13 @@ type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
 type CategoryUpdate = Database["public"]["Tables"]["categories"]["Update"];
 type CategorySlugRow = {
   slug: string;
+  image_url?: string | null;
 };
 
 const adminCategoriesPath = "/admin/categories";
+const categoryImagesBucket = "category-images";
+const maxCategoryImageSize = 5 * 1024 * 1024;
+const allowedCategoryImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/svg+xml"]);
 
 export async function createCategoryAction(formData: FormData) {
   await assertAdmin();
@@ -28,11 +33,30 @@ export async function createCategoryAction(formData: FormData) {
     );
   }
 
-  const supabase = await createClient();
+  const file = getImageFile(formData.get("image"));
   const payload = parsed.data as CategoryInsert;
+  let uploadedImagePath: string | null = null;
+
+  if (file) {
+    const validationError = validateCategoryImage(file);
+
+    if (validationError) {
+      redirectWithMessage(adminCategoriesPath, "error", validationError);
+    }
+
+    const uploadedImage = await uploadCategoryImage(file);
+    payload.image_url = uploadedImage.publicUrl;
+    uploadedImagePath = uploadedImage.storagePath;
+  }
+
+  const supabase = await createClient();
   const { error } = await supabase.from("categories").insert(payload as never);
 
   if (error) {
+    if (uploadedImagePath) {
+      await deleteCategoryImageByPath(uploadedImagePath);
+    }
+
     redirectWithMessage(adminCategoriesPath, "error", getCategoryErrorMessage(error.code));
   }
 
@@ -56,13 +80,31 @@ export async function updateCategoryAction(categoryId: string, formData: FormDat
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("categories")
-    .select("slug")
+    .select("slug,image_url")
     .eq("id", categoryId)
     .is("deleted_at", null)
     .maybeSingle()
     .returns<CategorySlugRow | null>();
 
+  const file = getImageFile(formData.get("image"));
   const payload = parsed.data as CategoryUpdate;
+
+  let uploadedImagePath: string | null = null;
+
+  if (file) {
+    const validationError = validateCategoryImage(file);
+
+    if (validationError) {
+      redirectWithMessage(adminCategoriesPath, "error", validationError);
+    }
+
+    const uploadedImage = await uploadCategoryImage(file, categoryId);
+    payload.image_url = uploadedImage.publicUrl;
+    uploadedImagePath = uploadedImage.storagePath;
+  } else {
+    payload.image_url = existing?.image_url ?? null;
+  }
+
   const { error } = await supabase
     .from("categories")
     .update(payload as never)
@@ -70,7 +112,15 @@ export async function updateCategoryAction(categoryId: string, formData: FormDat
     .is("deleted_at", null);
 
   if (error) {
+    if (uploadedImagePath) {
+      await deleteCategoryImageByPath(uploadedImagePath);
+    }
+
     redirectWithMessage(adminCategoriesPath, "error", getCategoryErrorMessage(error.code));
+  }
+
+  if (uploadedImagePath && existing?.image_url) {
+    await deleteCategoryImageByUrl(existing.image_url);
   }
 
   revalidateCategoryPaths(payload.slug);
@@ -125,6 +175,84 @@ async function assertOwner() {
   if (!admin) {
     redirect("/admin/categories?status=error&message=الحذف متاح للمالك فقط.");
   }
+}
+
+function getImageFile(value: FormDataEntryValue | null) {
+  return value instanceof File && value.size > 0 ? value : null;
+}
+
+function validateCategoryImage(file: File) {
+  if (!allowedCategoryImageTypes.has(file.type)) {
+    return "نوع الصورة غير مدعوم. الصيغ المسموحة: JPG, PNG, WEBP, SVG.";
+  }
+
+  if (file.size > maxCategoryImageSize) {
+    return "حجم صورة التصنيف يجب ألا يتجاوز 5MB.";
+  }
+
+  return null;
+}
+
+async function uploadCategoryImage(file: File, categoryId = crypto.randomUUID()) {
+  const supabase = createAdminClient();
+  const storagePath = `categories/${categoryId}/${crypto.randomUUID()}.${getImageExtension(file)}`;
+  const { error } = await supabase.storage.from(categoryImagesBucket).upload(storagePath, file, {
+    cacheControl: "31536000",
+    contentType: file.type,
+    upsert: false
+  });
+
+  if (error) {
+    redirectWithMessage(adminCategoriesPath, "error", "تعذر رفع صورة التصنيف. تحقق من bucket category-images.");
+  }
+
+  const { data } = supabase.storage.from(categoryImagesBucket).getPublicUrl(storagePath);
+  return { publicUrl: data.publicUrl, storagePath };
+}
+
+async function deleteCategoryImageByUrl(url?: string | null) {
+  const path = getCategoryImagePathFromUrl(url);
+
+  if (path) {
+    await deleteCategoryImageByPath(path);
+  }
+}
+
+async function deleteCategoryImageByPath(path: string) {
+  const supabase = createAdminClient();
+  await supabase.storage.from(categoryImagesBucket).remove([path]);
+}
+
+function getCategoryImagePathFromUrl(url?: string | null) {
+  if (!url) {
+    return null;
+  }
+
+  const marker = `/storage/v1/object/public/${categoryImagesBucket}/`;
+  const markerIndex = url.indexOf(marker);
+
+  if (markerIndex === -1) {
+    return null;
+  }
+
+  const pathWithQuery = url.slice(markerIndex + marker.length);
+  return decodeURIComponent(pathWithQuery.split("?")[0] ?? "");
+}
+
+function getImageExtension(file: File) {
+  if (file.type === "image/png") {
+    return "png";
+  }
+
+  if (file.type === "image/webp") {
+    return "webp";
+  }
+
+  if (file.type === "image/svg+xml") {
+    return "svg";
+  }
+
+  return "jpg";
 }
 
 function revalidateCategoryPaths(categorySlug?: string | null) {

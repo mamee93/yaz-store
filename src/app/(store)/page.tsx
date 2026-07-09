@@ -139,9 +139,10 @@ const offers: OfferPreview[] = [
 ];
 
 export default async function HomePage() {
-  const [categoryRows, productRows, bannerRows, settings] = await Promise.all([
+  const [categoryRows, productRows, heroBannerRows, offerBannerRows, settings] = await Promise.all([
     getActiveCategories(),
     getActiveProducts(),
+    getActiveBanners("home_hero"),
     getActiveBanners("offers"),
     getStoreSettings()
   ]);
@@ -168,11 +169,11 @@ export default async function HomePage() {
       : newArrivals;
 
   const resolvedOffers =
-    bannerRows.length > 0 ? bannerRows.slice(0, 3).map(mapBannerToOffer) : offers;
+    offerBannerRows.length > 0 ? offerBannerRows.slice(0, 3).map(mapBannerToOffer) : offers;
 
   return (
     <>
-      <HomeHero />
+      <HomeHero banner={heroBannerRows[0] ?? null} />
       <FeaturedCategories categories={resolvedCategories} />
       <ProductPreviewSection
         eyebrow="الأكثر طلباً"

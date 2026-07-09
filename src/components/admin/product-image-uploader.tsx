@@ -1,5 +1,6 @@
 import { ImageIcon, Star, Trash2, Upload } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Input } from "@/components/ui";
+import { ImageUploadField } from "@/components/admin/image-upload-field";
+import { Badge, Button, Card, EmptyState } from "@/components/ui";
 import {
   deleteProductImageAction,
   setPrimaryProductImageAction,
@@ -39,12 +40,13 @@ export function ProductImageUploader({ productId, images }: ProductImageUploader
       </div>
 
       <form action={uploadAction} className="space-y-3">
-        <Input
-          label="رفع صور جديدة"
+        <ImageUploadField
           name="images"
-          type="file"
+          label="رفع صور جديدة"
           accept="image/jpeg,image/png,image/webp"
           multiple
+          helpText="JPG, PNG, WEBP. الحد الأقصى 5MB للصورة الواحدة."
+          previewAlt="معاينة صور المنتج"
         />
         <Button type="submit" leftIcon={<Upload className="size-4" />}>
           رفع الصور

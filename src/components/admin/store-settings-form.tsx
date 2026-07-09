@@ -1,4 +1,5 @@
 import { Save } from "lucide-react";
+import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Button, Card, Input, Textarea } from "@/components/ui";
 import { updateStoreSettingsAction } from "@/features/store-settings/actions";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
@@ -161,46 +162,21 @@ function AssetUploadField({
 }) {
   return (
     <div className="rounded-oud border border-oud-brown/10 bg-oud-beige/25 p-4">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-        <div className="flex size-24 shrink-0 items-center justify-center overflow-hidden rounded-oud border border-oud-brown/10 bg-white">
-          {currentUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={currentUrl} alt={title} className="h-full w-full object-contain p-2" />
-          ) : (
-            <span className="text-xs font-semibold text-oud-muted">لا توجد صورة</span>
-          )}
-        </div>
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
-            <p className="text-sm font-semibold text-oud-brown">{title}</p>
-            <p className="mt-1 text-xs leading-5 text-oud-muted">
-              PNG أو JPG أو WEBP أو SVG. الحد الأقصى {maxSizeLabel}.
-            </p>
-          </div>
-          <label className="block space-y-2">
-            <span className="text-sm font-semibold text-oud-brown">رفع من الجهاز</span>
-            <input
-              type="file"
-              name={fileName}
-              accept="image/png,image/jpeg,image/webp,image/svg+xml"
-              className="block w-full rounded-oud border border-oud-brown/15 bg-white px-3 py-2 text-sm text-oud-ink file:me-3 file:rounded-md file:border-0 file:bg-oud-brown file:px-3 file:py-2 file:text-xs file:font-semibold file:text-oud-ivory"
-            />
-          </label>
-          <Input
-            label="رابط يدوي اختياري"
-            name={urlName}
-            defaultValue={currentUrl ?? ""}
-            dir="ltr"
-            placeholder="https://..."
-          />
-          {currentUrl ? (
-            <label className="inline-flex items-center gap-2 rounded-full border border-red-900/15 bg-red-900/10 px-4 py-2 text-xs font-semibold text-red-900">
-              <input type="checkbox" name={removeName} className="size-4 accent-red-900" />
-              إزالة الصورة الحالية
-            </label>
-          ) : null}
-        </div>
-      </div>
+      <ImageUploadField
+        name={fileName}
+        label={title}
+        currentImageUrl={currentUrl}
+        helpText={`PNG, JPG, WEBP, SVG. الحد الأقصى ${maxSizeLabel}.`}
+        previewAlt={title}
+        previewClassName="bg-white"
+      />
+      <input type="hidden" name={urlName} value={currentUrl ?? ""} />
+      {currentUrl ? (
+        <label className="mt-4 inline-flex items-center gap-2 rounded-full border border-red-900/15 bg-red-900/10 px-4 py-2 text-xs font-semibold text-red-900">
+          <input type="checkbox" name={removeName} className="size-4 accent-red-900" />
+          إزالة الصورة الحالية
+        </label>
+      ) : null}
     </div>
   );
 }

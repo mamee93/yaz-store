@@ -1,8 +1,25 @@
 import Link from "next/link";
 import { ArrowLeft, Sparkles } from "lucide-react";
 import { Badge, Container } from "@/components/ui";
+import type { BannerRead } from "@/features/banners/queries";
 
-export function HomeHero() {
+type HomeHeroProps = {
+  banner?: BannerRead | null;
+};
+
+export function HomeHero({ banner }: HomeHeroProps) {
+  const title = banner?.title_ar ?? "فخامة العود والبخور بروح عربية هادئة";
+  const description =
+    banner?.subtitle_ar ??
+    "عود ياز يقدم عودا، بخورا، عطورا، مسكا، وأطقم هدايا مختارة بعناية لتجربة فاخرة من أول نظرة حتى لحظة التغليف.";
+  const primaryHref = banner?.link_url ?? "/products";
+  const primaryLabel = banner?.button_label_ar ?? "تسوق الآن";
+  const visualStyle = banner?.image_url
+    ? {
+        background: `linear-gradient(145deg, rgba(54,31,20,0.18), rgba(54,31,20,0.58)), url("${banner.image_url}") center/cover`
+      }
+    : undefined;
+
   return (
     <section className="relative overflow-hidden bg-oud-ivory">
       <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-oud-beige/45 to-transparent" />
@@ -15,20 +32,19 @@ export function HomeHero() {
 
           <div className="space-y-5">
             <h1 className="text-pretty font-display text-3xl font-bold leading-tight text-oud-brown sm:text-4xl md:text-6xl">
-              فخامة العود والبخور بروح عربية هادئة
+              {title}
             </h1>
             <p className="max-w-xl text-sm leading-7 text-oud-muted sm:text-base sm:leading-8 md:text-lg">
-              عود ياز يقدم عوداً، بخوراً، عطورا، مسكاً، وأطقم هدايا مختارة بعناية
-              لتجربة فاخرة من أول نظرة حتى لحظة التغليف.
+              {description}
             </p>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/products"
+              href={primaryHref}
               className="inline-flex h-12 items-center justify-center rounded-oud bg-oud-brown px-7 text-sm font-semibold text-oud-ivory shadow-soft transition hover:bg-oud-coffee"
             >
-              تسوق الآن
+              {primaryLabel}
             </Link>
             <Link
               href="/offers"
@@ -42,19 +58,35 @@ export function HomeHero() {
 
         <div className="relative min-w-0">
           <div className="rounded-oud border border-oud-gold/25 bg-gradient-to-br from-oud-brown via-oud-coffee to-oud-gold p-4 shadow-gold">
-            <div className="relative min-h-[20rem] overflow-hidden rounded-oud border border-white/15 bg-[radial-gradient(circle_at_35%_25%,rgba(255,252,246,0.22),transparent_28%),linear-gradient(145deg,rgba(54,31,20,0.1),rgba(54,31,20,0.55))] p-5 sm:min-h-[24rem] sm:p-6 md:min-h-[28rem]">
-              <div className="absolute bottom-8 left-7 h-64 w-24 rounded-t-full border border-oud-gold/40 bg-oud-ivory/12 shadow-gold backdrop-blur-sm" />
-              <div className="absolute bottom-8 left-24 h-80 w-32 rounded-t-[4rem] border border-oud-gold/45 bg-oud-ivory/16 shadow-gold backdrop-blur-sm" />
-              <div className="absolute bottom-8 right-8 h-44 w-28 rounded-oud border border-oud-gold/35 bg-oud-brown/35 shadow-soft" />
-              <div className="absolute right-7 top-7 rounded-full border border-oud-gold/30 bg-oud-brown/25 px-4 py-2 text-xs font-semibold text-oud-beige">
-                تغليف فاخر
-              </div>
-              <div className="absolute bottom-7 right-7 max-w-56 space-y-3 text-oud-ivory">
-                <p className="font-display text-3xl font-bold">Oud Yaz</p>
-                <p className="text-sm leading-7 text-oud-beige">
-                  مساحة بصرية فاخرة لمنتجات العود والبخور والهدايا.
-                </p>
-              </div>
+            <div
+              className="relative min-h-[20rem] overflow-hidden rounded-oud border border-white/15 bg-[radial-gradient(circle_at_35%_25%,rgba(255,252,246,0.22),transparent_28%),linear-gradient(145deg,rgba(54,31,20,0.1),rgba(54,31,20,0.55))] p-5 sm:min-h-[24rem] sm:p-6 md:min-h-[28rem]"
+              style={visualStyle}
+            >
+              {banner?.image_url ? (
+                <div className="absolute inset-x-5 bottom-5 rounded-oud bg-oud-brown/70 p-4 text-oud-ivory backdrop-blur-sm">
+                  <p className="font-display text-2xl font-bold">{banner.title_ar}</p>
+                  {banner.subtitle_ar ? (
+                    <p className="mt-2 line-clamp-2 text-sm leading-6 text-oud-beige">
+                      {banner.subtitle_ar}
+                    </p>
+                  ) : null}
+                </div>
+              ) : (
+                <>
+                  <div className="absolute bottom-8 left-7 h-64 w-24 rounded-t-full border border-oud-gold/40 bg-oud-ivory/12 shadow-gold backdrop-blur-sm" />
+                  <div className="absolute bottom-8 left-24 h-80 w-32 rounded-t-[4rem] border border-oud-gold/45 bg-oud-ivory/16 shadow-gold backdrop-blur-sm" />
+                  <div className="absolute bottom-8 right-8 h-44 w-28 rounded-oud border border-oud-gold/35 bg-oud-brown/35 shadow-soft" />
+                  <div className="absolute right-7 top-7 rounded-full border border-oud-gold/30 bg-oud-brown/25 px-4 py-2 text-xs font-semibold text-oud-beige">
+                    تغليف فاخر
+                  </div>
+                  <div className="absolute bottom-7 right-7 max-w-56 space-y-3 text-oud-ivory">
+                    <p className="font-display text-3xl font-bold">Oud Yaz</p>
+                    <p className="text-sm leading-7 text-oud-beige">
+                      مساحة بصرية فاخرة لمنتجات العود والبخور والهدايا.
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
