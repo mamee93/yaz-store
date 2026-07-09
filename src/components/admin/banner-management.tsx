@@ -3,9 +3,29 @@ import { adminBanners } from "./admin-static-data";
 
 export function BannerManagement() {
   return (
-    <div className="grid gap-5 xl:grid-cols-[1fr_24rem]">
-      <Card className="overflow-hidden shadow-none">
-        <div className="overflow-x-auto">
+    <div className="min-w-0 space-y-5">
+      <Card className="max-w-4xl p-5 shadow-none">
+        <h2 className="font-display text-2xl font-bold text-oud-brown">نموذج البنر</h2>
+        <div className="mt-5 space-y-4">
+          <Input label="العنوان" name="bannerTitle" />
+          <Textarea label="النص المختصر" name="bannerSubtitle" />
+          <Select label="المكان" name="placement" defaultValue="home">
+            <option value="home">الرئيسية</option>
+            <option value="offers">العروض</option>
+            <option value="category">التصنيف</option>
+          </Select>
+          <Input label="رابط الزر" name="linkUrl" placeholder="/products" dir="ltr" />
+          <div className="grid min-h-32 place-items-center rounded-oud border border-dashed border-oud-brown/20 bg-oud-beige/25 text-sm text-oud-muted">
+            رفع صورة البنر لاحقاً
+          </div>
+          <div className="rounded-oud bg-oud-brown px-5 py-3 text-center text-sm font-semibold text-oud-ivory">
+            حفظ تجريبي غير مفعّل
+          </div>
+        </div>
+      </Card>
+
+      <Card className="min-w-0 overflow-hidden shadow-none">
+        <div className="w-full overflow-x-auto">
           <table className="w-full min-w-[40rem] text-right text-sm">
             <thead className="bg-oud-beige/35 text-xs text-oud-muted">
               <tr>
@@ -27,32 +47,14 @@ export function BannerManagement() {
                   <td className="px-5 py-4 text-oud-muted">{banner.placement}</td>
                   <td className="px-5 py-4 text-oud-muted">{banner.sort}</td>
                   <td className="px-5 py-4">
-                    <Badge variant={banner.status === "نشط" ? "success" : "gold"}>{banner.status}</Badge>
+                    <Badge variant={banner.status === "نشط" ? "success" : "gold"}>
+                      {banner.status}
+                    </Badge>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
-      </Card>
-
-      <Card className="p-5 shadow-none">
-        <h2 className="font-display text-2xl font-bold text-oud-brown">نموذج البنر</h2>
-        <div className="mt-5 space-y-4">
-          <Input label="العنوان" name="bannerTitle" />
-          <Textarea label="النص المختصر" name="bannerSubtitle" />
-          <Select label="المكان" name="placement" defaultValue="home">
-            <option value="home">الرئيسية</option>
-            <option value="offers">العروض</option>
-            <option value="category">التصنيف</option>
-          </Select>
-          <Input label="رابط الزر" name="linkUrl" placeholder="/products" dir="ltr" />
-          <div className="grid min-h-32 place-items-center rounded-oud border border-dashed border-oud-brown/20 bg-oud-beige/25 text-sm text-oud-muted">
-            رفع صورة البنر لاحقاً
-          </div>
-          <div className="rounded-oud bg-oud-brown px-5 py-3 text-center text-sm font-semibold text-oud-ivory">
-            حفظ تجريبي غير مفعّل
-          </div>
         </div>
       </Card>
     </div>
