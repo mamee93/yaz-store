@@ -1,17 +1,24 @@
 "use client";
 
 import { LogOut } from "lucide-react";
-import { customerLogoutAction } from "@/features/auth/actions";
+import { adminLogoutAction, customerLogoutAction } from "@/features/auth/actions";
 import { cn } from "@/utils/cn";
 
 type CustomerLogoutButtonProps = {
   className?: string;
   compact?: boolean;
+  scope?: "customer" | "admin";
 };
 
-export function CustomerLogoutButton({ className, compact = false }: CustomerLogoutButtonProps) {
+export function CustomerLogoutButton({
+  className,
+  compact = false,
+  scope = "customer"
+}: CustomerLogoutButtonProps) {
+  const action = scope === "admin" ? adminLogoutAction : customerLogoutAction;
+
   return (
-    <form action={customerLogoutAction}>
+    <form action={action}>
       <button
         type="submit"
         className={cn(

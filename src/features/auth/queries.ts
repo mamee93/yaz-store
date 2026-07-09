@@ -32,7 +32,12 @@ export async function getCurrentAdmin() {
     return null;
   }
 
-  const { data, error } = await supabase
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return null;
+  }
+
+  const adminClient = createAdminClient();
+  const { data, error } = await adminClient
     .from("admins")
     .select("id,auth_user_id,full_name,display_name,email,role,is_active")
     .eq("auth_user_id", user.id)

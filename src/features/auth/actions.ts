@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -146,12 +147,7 @@ export async function adminLoginAction(formData: FormData) {
     loginRedirect("/admin/login", "بيانات الدخول غير صحيحة.");
   }
 
-  const { data: admin, error: adminError } = await supabase
-    .from("admins")
-    .select("id,is_active")
-    .eq("auth_user_id", user.id)
-    .maybeSingle()
-    .returns<{ id: string; is_active: boolean } | null>();
+  const { admin, error: adminError } = await getAdminLoginProfile(user.id);
 
   if (adminError || !admin) {
     redirect("/account");
@@ -166,25 +162,38 @@ export async function adminLoginAction(formData: FormData) {
 }
 
 async function isActiveAdminUser(userId: string) {
-  const supabase = await createClient();
-  const { data } = await supabase
+  const { admin } = await getAdminLoginProfile(userId);
+
+  return Boolean(admin?.is_active);
+}
+
+async function getAdminLoginProfile(userId: string) {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    return { admin: null, error: null };
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
     .from("admins")
-    .select("is_active")
+    .select("id,is_active")
     .eq("auth_user_id", userId)
     .maybeSingle()
-    .returns<{ is_active: boolean } | null>();
+    .returns<{ id: string; is_active: boolean } | null>();
 
-  return Boolean(data?.is_active);
+  return { admin: data, error };
 }
 
 export async function customerLogoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  revalidatePath("/", "layout");
   redirect("/login?message=تم تسجيل الخروج بنجاح.");
 }
 
 export async function adminLogoutAction() {
   const supabase = await createClient();
   await supabase.auth.signOut();
+  revalidatePath("/", "layout");
+  revalidatePath("/admin", "layout");
   redirect("/admin/login?message=تم تسجيل الخروج بنجاح.");
 }

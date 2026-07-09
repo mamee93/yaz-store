@@ -91,7 +91,11 @@ export function SiteHeader({
             {accountLabel}
           </Link>
           {isCustomerLoggedIn || isAdminLoggedIn ? (
-            <CustomerLogoutButton className="hidden h-9 px-3 text-xs md:inline-flex" compact />
+            <CustomerLogoutButton
+              className="hidden h-9 px-3 text-xs md:inline-flex"
+              compact
+              scope={isAdminLoggedIn ? "admin" : "customer"}
+            />
           ) : null}
           <Link
             href="/contact"

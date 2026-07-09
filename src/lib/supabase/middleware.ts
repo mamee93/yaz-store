@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient as createSupabaseClient, type SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import type { CookieOptions } from "@supabase/ssr";
 import { canAccessAdminPath, normalizeAdminRole, type AdminRole } from "@/constants/admin-roles";
@@ -68,18 +69,12 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
-  const { data: admin } = await supabase
-    .from("admins")
-    .select("is_active,role")
-    .eq("auth_user_id", user.id)
-    .maybeSingle()
-    .returns<MiddlewareAdmin | null>();
+  const admin = await getMiddlewareAdmin(supabaseUrl, user.id);
 
   const isActiveAdmin = Boolean(admin?.is_active);
   const role: AdminRole = normalizeAdminRole(admin?.role);
 
   if (isAdminRoute && !isAdminLoginRoute && !isActiveAdmin) {
-    await supabase.auth.signOut();
     return withSessionCookies(
       response,
       redirectToLogin(request, "هذا الحساب غير مصرح له بدخول لوحة الإدارة.")
@@ -103,6 +98,40 @@ export async function updateSession(request: NextRequest) {
   }
 
   return response;
+}
+
+async function getMiddlewareAdmin(supabaseUrl: string, userId: string) {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+  const client: SupabaseClient<Database> = serviceRoleKey
+    ? createSupabaseClient<Database>(supabaseUrl, serviceRoleKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      })
+    : createSupabaseClient<Database>(
+        supabaseUrl,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "",
+        {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false
+          }
+        }
+      );
+
+  const { data, error } = await client
+    .from("admins")
+    .select("is_active,role")
+    .eq("auth_user_id", userId)
+    .maybeSingle()
+    .returns<MiddlewareAdmin | null>();
+
+  if (error) {
+    return null;
+  }
+
+  return data;
 }
 
 function redirectToLogin(request: NextRequest, error?: string) {

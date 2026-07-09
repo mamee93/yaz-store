@@ -116,7 +116,10 @@ export function MobileNav({
               {isAdminLoggedIn ? "لوحة التحكم" : isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول"}
             </Link>
             {isCustomerLoggedIn || isAdminLoggedIn ? (
-              <CustomerLogoutButton className="w-full justify-center" />
+              <CustomerLogoutButton
+                className="w-full justify-center"
+                scope={isAdminLoggedIn ? "admin" : "customer"}
+              />
             ) : null}
             <Link
               href="/contact"
