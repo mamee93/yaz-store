@@ -10,10 +10,10 @@ type ProductCardProps = {
 
 export function ProductCard({ product }: ProductCardProps) {
   return (
-    <Card className="group h-full overflow-hidden transition hover:-translate-y-1 hover:border-oud-gold/35 hover:shadow-gold">
+    <Card className="group h-full overflow-hidden bg-white transition duration-300 hover:-translate-y-1 hover:border-oud-gold/45 hover:shadow-gold">
       <Link href={`/products/${product.slug}`} className="block">
         <div
-          className="relative aspect-[4/5] border-b border-oud-brown/10"
+          className="relative aspect-[3/4] overflow-hidden border-b border-oud-brown/10"
           style={{ background: product.imageTone }}
         >
           {product.imageUrl ? (
@@ -22,27 +22,23 @@ export function ProductCard({ product }: ProductCardProps) {
               alt={product.imageAlt ?? product.name}
               fill
               sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
-              className="object-cover"
+              className="object-cover transition duration-300 group-hover:scale-[1.03]"
             />
-          ) : null}
+          ) : (
+            <div className="absolute inset-x-8 bottom-8 h-44 rounded-t-full border border-white/35 bg-white/15 shadow-soft backdrop-blur-sm" />
+          )}
           {product.badge ? (
             <Badge variant="gold" className="absolute right-3 top-3">
               {product.badge}
             </Badge>
           ) : null}
-          {!product.imageUrl ? (
-            <>
-              <div className="absolute bottom-5 left-1/2 h-32 w-16 -translate-x-1/2 rounded-t-full border border-white/35 bg-white/18 shadow-soft backdrop-blur-sm" />
-              <div className="absolute bottom-5 left-1/2 h-10 w-24 -translate-x-1/2 rounded-full bg-oud-brown/18 blur-md" />
-            </>
-          ) : null}
         </div>
       </Link>
 
-      <div className="space-y-3 p-3 md:p-4">
-        <Link href={`/products/${product.slug}`} className="block space-y-1">
-          <p className="text-xs font-semibold text-oud-gold">{product.categoryName}</p>
-          <h3 className="line-clamp-2 min-h-12 break-words text-sm font-bold leading-6 text-oud-brown">
+      <div className="space-y-3 p-4">
+        <Link href={`/products/${product.slug}`} className="block space-y-2">
+          <p className="text-xs font-bold text-oud-gold">{product.categoryName}</p>
+          <h3 className="line-clamp-2 min-h-12 break-words text-sm font-bold leading-6 text-oud-brown sm:text-base">
             {product.name}
           </h3>
         </Link>
@@ -51,7 +47,7 @@ export function ProductCard({ product }: ProductCardProps) {
         </p>
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col">
-            <Price value={product.price} className="text-sm" />
+            <Price value={product.price} className="text-base" />
             {product.compareAtPrice ? (
               <Price value={product.compareAtPrice} className="text-xs text-oud-muted line-through" />
             ) : null}

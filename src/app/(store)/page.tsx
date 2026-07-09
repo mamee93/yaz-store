@@ -1,9 +1,8 @@
-import { BrandStoryPreview } from "@/components/storefront/brand-story-preview";
 import {
   FeaturedCategories,
   type FeaturedCategory
 } from "@/components/storefront/featured-categories";
-import { GiftSetsFeature } from "@/components/storefront/gift-sets-feature";
+import { HomeFaq } from "@/components/storefront/home-faq";
 import { HomeHero } from "@/components/storefront/home-hero";
 import { OffersPreview, type OfferPreview } from "@/components/storefront/offers-preview";
 import {
@@ -18,7 +17,6 @@ import {
   mapCategoryToFeaturedCategory
 } from "@/features/categories/queries";
 import { getActiveProducts, mapProductToPreview } from "@/features/products/queries";
-import { getStoreSettings } from "@/features/store-settings/queries";
 
 const featuredCategories: FeaturedCategory[] = [
   {
@@ -59,7 +57,7 @@ const bestSellers: ProductPreview[] = [
     href: "/products/royal-oud-oil",
     price: 28,
     label: "عود فاخر",
-    badge: "الأكثر طلباً",
+    badge: "الأكثر طلبا",
     imageTone: "linear-gradient(145deg, #361f14, #b88945)"
   },
   {
@@ -85,38 +83,6 @@ const bestSellers: ProductPreview[] = [
   }
 ];
 
-const newArrivals: ProductPreview[] = [
-  {
-    name: "مجموعة ضيافة البخور",
-    href: "/products/bakhoor-hosting-set",
-    price: 24,
-    label: "مجموعة",
-    badge: "جديد",
-    imageTone: "linear-gradient(145deg, #4d2d1d, #c2a06b)"
-  },
-  {
-    name: "عود يومي هادئ",
-    href: "/products/calm-daily-oud",
-    price: 15.5,
-    label: "عود",
-    imageTone: "linear-gradient(145deg, #3a2419, #9b7448)"
-  },
-  {
-    name: "عطر ليل مسقط",
-    href: "/products/muscat-night-perfume",
-    price: 22,
-    label: "عطر",
-    imageTone: "linear-gradient(145deg, #241c19, #b88945)"
-  },
-  {
-    name: "هدية ياز الصغيرة",
-    href: "/products/yaz-small-gift",
-    price: 18.25,
-    label: "هدية",
-    imageTone: "linear-gradient(145deg, #7a5030, #efe5d3)"
-  }
-];
-
 const offers: OfferPreview[] = [
   {
     title: "مختارات البداية",
@@ -139,12 +105,11 @@ const offers: OfferPreview[] = [
 ];
 
 export default async function HomePage() {
-  const [categoryRows, productRows, heroBannerRows, offerBannerRows, settings] = await Promise.all([
+  const [categoryRows, productRows, heroBannerRows, offerBannerRows] = await Promise.all([
     getActiveCategories(),
     getActiveProducts(),
     getActiveBanners("home_hero"),
-    getActiveBanners("offers"),
-    getStoreSettings()
+    getActiveBanners("offers")
   ]);
 
   const resolvedCategories =
@@ -160,14 +125,6 @@ export default async function HomePage() {
           .map(mapProductToPreview)
       : bestSellers;
 
-  const resolvedNewArrivals =
-    productRows.length > 0
-      ? productRows
-          .filter((product) => product.is_new_arrival)
-          .slice(0, 4)
-          .map(mapProductToPreview)
-      : newArrivals;
-
   const resolvedOffers =
     offerBannerRows.length > 0 ? offerBannerRows.slice(0, 3).map(mapBannerToOffer) : offers;
 
@@ -176,25 +133,16 @@ export default async function HomePage() {
       <HomeHero banner={heroBannerRows[0] ?? null} />
       <FeaturedCategories categories={resolvedCategories} />
       <ProductPreviewSection
-        eyebrow="الأكثر طلباً"
-        title="الأكثر مبيعاً"
+        eyebrow="الأكثر طلبا"
+        title="أفضل اختيارات عود ياز"
         description="منتجات يختارها العملاء للثبات، الفخامة، وسهولة الإهداء."
         products={resolvedBestSellers.length > 0 ? resolvedBestSellers : bestSellers}
         href="/products"
       />
-      <GiftSetsFeature />
-      <TrustStrip />
-      <ProductPreviewSection
-        eyebrow="وصل حديثاً"
-        title="وصل حديثاً"
-        description="إضافات جديدة بتوازن بين الطابع العربي والفخامة اليومية."
-        products={resolvedNewArrivals.length > 0 ? resolvedNewArrivals : newArrivals}
-        href="/products"
-        tone="beige"
-      />
       <OffersPreview offers={resolvedOffers} />
-      <BrandStoryPreview story={settings?.brand_story_ar} />
+      <TrustStrip />
       <WhatsAppCta />
+      <HomeFaq />
     </>
   );
 }

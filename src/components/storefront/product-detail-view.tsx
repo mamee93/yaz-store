@@ -1,11 +1,12 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import type { ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { CheckCircle2, Heart, PackageCheck, Truck } from "lucide-react";
+import { AddToCartButton } from "@/components/storefront/add-to-cart-button";
 import { Badge, Card, Container, Heading, Price } from "@/components/ui";
-import { AddToCartButton } from "./add-to-cart-button";
 import type { StoreProduct, StoreProductImage } from "./static-catalog";
 
 type ProductDetailViewProps = {
@@ -15,9 +16,9 @@ type ProductDetailViewProps = {
 
 export function ProductDetailView({ product, relatedProducts }: ProductDetailViewProps) {
   return (
-    <main>
-      <Container className="py-8 md:py-12">
-        <div className="grid min-w-0 gap-6 lg:grid-cols-[minmax(0,0.95fr)_minmax(0,1.05fr)] lg:gap-8">
+    <main className="bg-oud-ivory">
+      <Container size="wide" className="py-8 md:py-12">
+        <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)] lg:gap-12">
           <ProductGallery product={product} />
 
           <section className="min-w-0 space-y-6">
@@ -31,85 +32,84 @@ export function ProductDetailView({ product, relatedProducts }: ProductDetailVie
                 {product.name}
               </Heading>
               <div className="flex flex-wrap items-end gap-3">
-                <Price value={product.price} className="text-2xl" />
+                <Price value={product.price} className="text-3xl" />
                 {product.compareAtPrice ? (
                   <Price
                     value={product.compareAtPrice}
-                    className="pb-1 text-sm text-oud-muted line-through"
+                    className="pb-1 text-base text-oud-muted line-through"
                   />
                 ) : null}
               </div>
             </div>
 
-            <Card className="space-y-4 p-4 sm:p-5">
-              <p className="text-sm leading-8 text-oud-muted">{product.description}</p>
-              <div className="grid gap-3 sm:grid-cols-2">
+            <Card className="space-y-5 bg-white p-5 shadow-none">
+              <div className="grid gap-3 sm:grid-cols-3">
+                <DetailStat label="العائلة" value={product.label} />
                 <DetailStat label="القوة" value={product.intensity} />
-                <DetailStat label="المخزون" value={product.stockLabel} />
+                <DetailStat label="الحجم" value={product.sizeLabel} />
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
                 <AddToCartButton product={product} className="w-full" />
                 <Link
                   href="/contact"
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-oud border border-oud-brown/20 bg-oud-pearl px-7 text-sm font-semibold text-oud-brown transition hover:bg-oud-beige/40"
+                  className="inline-flex h-12 items-center justify-center gap-2 rounded-oud border border-oud-brown/20 bg-oud-pearl px-6 text-sm font-bold text-oud-brown transition hover:bg-oud-beige/40"
                 >
                   <Heart className="size-4" aria-hidden="true" />
                   استفسر عن المنتج
                 </Link>
               </div>
             </Card>
+
+            <Card className="bg-white p-5 shadow-none">
+              <h2 className="font-display text-2xl font-bold text-oud-brown">وصف المنتج</h2>
+              <p className="mt-4 text-sm leading-8 text-oud-muted">{product.description}</p>
+            </Card>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DeliveryCard
+                icon={<Truck className="size-5" aria-hidden="true" />}
+                title="معلومات التوصيل"
+                description="توصيل داخل محافظات عمان، وتظهر تفاصيل الرسوم والخيارات أثناء إكمال الطلب."
+              />
+              <DeliveryCard
+                icon={<PackageCheck className="size-5" aria-hidden="true" />}
+                title="تغليف مناسب للهدايا"
+                description="تجربة عرض راقية تناسب المناسبات والزيارات والهدايا الشخصية."
+              />
+            </div>
           </section>
         </div>
 
-        <div className="mt-10 grid min-w-0 gap-4 lg:grid-cols-3">
+        <div className="mt-12 grid min-w-0 gap-4 lg:grid-cols-3">
           <InfoCard title="الطابع العطري" items={product.scentProfile} />
           <InfoCard title="طريقة الاستخدام" items={product.usage} />
           <InfoCard title="مناسب لـ" items={product.occasions} />
         </div>
 
-        <Card className="mt-6 grid gap-4 p-4 sm:p-5 md:grid-cols-2">
-          <div className="flex gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-oud bg-oud-beige/45 text-oud-brown">
-              <Truck className="size-5" aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-sm font-bold text-oud-brown">ملاحظة التوصيل</h2>
-              <p className="mt-1 text-sm leading-7 text-oud-muted">
-                التوصيل داخل عمان والخليج سيظهر بتفاصيله عند ربط إعدادات المتجر لاحقاً.
-              </p>
+        {relatedProducts.length > 0 ? (
+          <section className="mt-14 space-y-7">
+            <Heading description="منتجات قريبة من نفس الذائقة أو التصنيف.">
+              قد يعجبك أيضا
+            </Heading>
+            <div className="grid grid-cols-2 gap-3 md:gap-5 lg:grid-cols-4">
+              {relatedProducts.map((item) => (
+                <Link
+                  key={item.slug}
+                  href={`/products/${item.slug}`}
+                  className="group min-w-0 overflow-hidden rounded-oud border border-oud-brown/10 bg-white shadow-soft transition hover:-translate-y-1 hover:border-oud-gold/45 hover:shadow-gold"
+                >
+                  <RelatedProductImage product={item} />
+                  <div className="space-y-2 p-4">
+                    <p className="line-clamp-2 min-h-12 break-words text-sm font-bold leading-6 text-oud-brown">
+                      {item.name}
+                    </p>
+                    <Price value={item.price} className="text-sm" />
+                  </div>
+                </Link>
+              ))}
             </div>
-          </div>
-          <div className="flex gap-3">
-            <span className="grid size-11 shrink-0 place-items-center rounded-oud bg-oud-beige/45 text-oud-brown">
-              <PackageCheck className="size-5" aria-hidden="true" />
-            </span>
-            <div>
-              <h2 className="text-sm font-bold text-oud-brown">تغليف فاخر</h2>
-              <p className="mt-1 text-sm leading-7 text-oud-muted">
-                المنتجات مؤهلة لتجربة تغليف فاخرة مناسبة للهدايا والمناسبات.
-              </p>
-            </div>
-          </div>
-        </Card>
-
-        <section className="mt-12 space-y-6">
-          <Heading description="منتجات قريبة من نفس الذائقة أو التصنيف.">
-            قد يعجبك أيضاً
-          </Heading>
-          <div className="grid grid-cols-[repeat(auto-fit,minmax(min(10rem,100%),1fr))] gap-3 md:grid-cols-4">
-            {relatedProducts.map((item) => (
-              <Link
-                key={item.slug}
-                href={`/products/${item.slug}`}
-                className="min-w-0 rounded-oud border border-oud-brown/10 bg-oud-pearl p-3 transition hover:border-oud-gold/35 sm:p-4"
-              >
-                <RelatedProductImage product={item} />
-                <p className="break-words text-sm font-bold text-oud-brown">{item.name}</p>
-                <Price value={item.price} className="mt-2 text-sm" />
-              </Link>
-            ))}
-          </div>
-        </section>
+          </section>
+        ) : null}
       </Container>
     </main>
   );
@@ -121,9 +121,9 @@ function ProductGallery({ product }: { product: StoreProduct }) {
   const selectedImage = images.find((image) => image.id === selectedImageId) ?? images[0];
 
   return (
-    <section className="min-w-0 space-y-3">
+    <section className="min-w-0 space-y-4">
       <div
-        className="relative aspect-[4/5] overflow-hidden rounded-oud border border-oud-gold/25 shadow-gold"
+        className="relative aspect-[4/5] min-h-[24rem] overflow-hidden rounded-oud border border-oud-gold/25 bg-oud-brown shadow-gold"
         style={{ background: product.imageTone }}
       >
         {selectedImage ? (
@@ -132,17 +132,14 @@ function ProductGallery({ product }: { product: StoreProduct }) {
             alt={selectedImage.alt}
             fill
             priority
-            sizes="(min-width: 1024px) 45vw, 100vw"
+            sizes="(min-width: 1024px) 52vw, 100vw"
             className="object-cover"
           />
         ) : (
-          <>
-            <div className="absolute bottom-10 left-1/2 h-72 w-32 -translate-x-1/2 rounded-t-full border border-white/40 bg-white/18 shadow-soft backdrop-blur-sm" />
-            <div className="absolute bottom-10 left-1/2 h-16 w-52 -translate-x-1/2 rounded-full bg-oud-brown/20 blur-lg" />
-          </>
+          <div className="absolute inset-x-12 bottom-12 h-80 rounded-t-full border border-white/35 bg-white/15 shadow-soft backdrop-blur-sm" />
         )}
-        <div className="absolute right-5 top-5 rounded-full border border-white/20 bg-oud-brown/25 px-4 py-2 text-xs font-semibold text-oud-ivory">
-          {selectedImage ? "صورة المنتج" : "صورة تجريبية"}
+        <div className="absolute right-5 top-5 rounded-full border border-white/20 bg-oud-brown/40 px-4 py-2 text-xs font-bold text-oud-ivory backdrop-blur-sm">
+          {selectedImage ? "صورة المنتج" : "معاينة المنتج"}
         </div>
       </div>
 
@@ -153,7 +150,7 @@ function ProductGallery({ product }: { product: StoreProduct }) {
                 key={image.id}
                 type="button"
                 onClick={() => setSelectedImageId(image.id)}
-                className="relative aspect-square overflow-hidden rounded-oud border border-oud-brown/10 transition hover:border-oud-gold/45 data-[active=true]:border-oud-gold data-[active=true]:ring-2 data-[active=true]:ring-oud-gold/25"
+                className="relative aspect-square overflow-hidden rounded-oud border border-oud-brown/10 bg-white transition hover:border-oud-gold/45 data-[active=true]:border-oud-gold data-[active=true]:ring-2 data-[active=true]:ring-oud-gold/25"
                 data-active={image.id === selectedImage?.id}
                 aria-label={`عرض ${image.alt}`}
               >
@@ -181,7 +178,7 @@ function ProductGallery({ product }: { product: StoreProduct }) {
 function RelatedProductImage({ product }: { product: StoreProduct }) {
   return (
     <div
-      className="relative mb-3 aspect-square overflow-hidden rounded-oud"
+      className="relative aspect-[3/4] overflow-hidden border-b border-oud-brown/10"
       style={{ background: product.imageTone }}
     >
       {product.imageUrl ? (
@@ -190,7 +187,7 @@ function RelatedProductImage({ product }: { product: StoreProduct }) {
           alt={product.imageAlt ?? product.name}
           fill
           sizes="(min-width: 768px) 25vw, 50vw"
-          className="object-cover"
+          className="object-cover transition duration-300 group-hover:scale-[1.03]"
         />
       ) : null}
     </div>
@@ -225,9 +222,31 @@ function DetailStat({ label, value }: { label: string; value: string }) {
   );
 }
 
+function DeliveryCard({
+  icon,
+  title,
+  description
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Card className="flex gap-3 bg-white p-4 shadow-none">
+      <span className="grid size-11 shrink-0 place-items-center rounded-oud bg-oud-brown text-oud-gold">
+        {icon}
+      </span>
+      <div>
+        <h2 className="text-sm font-bold text-oud-brown">{title}</h2>
+        <p className="mt-1 text-sm leading-7 text-oud-muted">{description}</p>
+      </div>
+    </Card>
+  );
+}
+
 function InfoCard({ title, items }: { title: string; items: string[] }) {
   return (
-    <Card className="p-5">
+    <Card className="bg-white p-5 shadow-none">
       <h2 className="font-display text-xl font-bold text-oud-brown">{title}</h2>
       <ul className="mt-4 space-y-3">
         {items.map((item) => (
