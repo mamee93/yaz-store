@@ -3,8 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireAdmin } from "@/features/auth/queries";
+import { getCurrentCustomer, requireAdmin } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
+import { customerDeliveryProfileSchema } from "@/validations/customer-profile-schema";
 import type { Database } from "@/types/database";
 
 const customerNotesSchema = z.object({
@@ -47,6 +49,55 @@ export async function updateCustomerNotesAction(customerId: string, formData: Fo
   revalidatePath("/admin/customers");
   revalidatePath(`/admin/customers/${customerId}`);
   redirectWithMessage(customerId, "success", "تم تحديث ملاحظات العميل بنجاح.");
+}
+
+export async function updateCustomerDeliveryProfileAction(formData: FormData) {
+  const profile = await getCurrentCustomer();
+
+  if (!profile?.id) {
+    redirect("/login?message=يرجى تسجيل الدخول لتحديث بيانات التوصيل.");
+  }
+
+  const authClient = await createClient();
+  const {
+    data: { user }
+  } = await authClient.auth.getUser();
+
+  if (!user || (profile.auth_user_id && profile.auth_user_id !== user.id)) {
+    redirect("/login?message=يرجى تسجيل الدخول لتحديث بيانات التوصيل.");
+  }
+
+  const parsed = customerDeliveryProfileSchema.safeParse({
+    phone: formData.get("phone"),
+    governorate: formData.get("governorate"),
+    wilayat: formData.get("wilayat"),
+    area: formData.get("area"),
+    detailed_address: formData.get("detailed_address")
+  });
+
+  if (!parsed.success) {
+    redirect(
+      `/account?status=error&message=${encodeURIComponent(
+        parsed.error.issues[0]?.message ?? "تعذر تحديث بيانات التوصيل."
+      )}`
+    );
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("customers")
+    .update({
+      ...parsed.data,
+      auth_user_id: user.id
+    } as Database["public"]["Tables"]["customers"]["Update"] as never)
+    .eq("id", profile.id);
+
+  if (error) {
+    redirect("/account?status=error&message=تعذر تحديث بيانات التوصيل. حاول مرة أخرى.");
+  }
+
+  revalidatePath("/account");
+  redirect("/account?status=success&message=تم تحديث بيانات التوصيل بنجاح.");
 }
 
 function normalizeNullableText(value: FormDataEntryValue | null) {

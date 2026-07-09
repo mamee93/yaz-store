@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UserPlus } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
+import { CustomerDeliveryFields } from "@/components/customer/customer-delivery-fields";
 import { registerCustomerAction } from "@/features/auth/actions";
 import { getCurrentCustomer } from "@/features/auth/queries";
 
@@ -24,7 +25,7 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
   return (
     <section className="grid min-h-screen place-items-center bg-oud-ivory px-4 py-10" dir="rtl">
-      <Card className="w-full max-w-md p-6 md:p-8">
+      <Card className="w-full max-w-2xl p-6 md:p-8">
         <div className="mb-7 text-center">
           <span className="mx-auto grid size-14 place-items-center rounded-oud bg-oud-brown text-oud-gold">
             <UserPlus className="size-6" aria-hidden="true" />
@@ -45,7 +46,6 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
 
         <form action={registerCustomerAction} className="space-y-4">
           <Input label="الاسم الكامل" name="fullName" placeholder="مثال: أحمد الهاشمي" required />
-          <Input label="رقم الهاتف" name="phone" type="tel" placeholder="9XXXXXXX" required />
           <Input
             label="البريد الإلكتروني"
             name="email"
@@ -62,6 +62,12 @@ export default async function RegisterPage({ searchParams }: RegisterPageProps) 
             dir="ltr"
             required
           />
+          <div className="rounded-oud border border-oud-brown/10 bg-oud-beige/20 p-4">
+            <h2 className="mb-4 font-display text-xl font-bold text-oud-brown">
+              بيانات التوصيل الافتراضية
+            </h2>
+            <CustomerDeliveryFields />
+          </div>
           <Button type="submit" className="w-full" size="lg">
             إنشاء الحساب
           </Button>

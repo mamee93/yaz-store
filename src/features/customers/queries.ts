@@ -121,7 +121,7 @@ export async function getAdminCustomers(search?: string) {
     await Promise.all([
       supabase
         .from("customers")
-        .select("id,auth_user_id,full_name,phone,email,whatsapp_number,notes,created_at,updated_at")
+        .select("id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,notes,created_at,updated_at")
         .order("created_at", { ascending: false })
         .returns<CustomerRow[]>(),
       supabase
@@ -161,7 +161,7 @@ export async function getAdminCustomerById(customerId: string) {
   ] = await Promise.all([
     supabase
       .from("customers")
-      .select("id,auth_user_id,full_name,phone,email,whatsapp_number,notes,created_at,updated_at")
+      .select("id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,notes,created_at,updated_at")
       .eq("id", customerId)
       .maybeSingle()
       .returns<CustomerRow | null>(),

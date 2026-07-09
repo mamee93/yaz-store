@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { CalendarDays, PackageCheck, UserRound } from "lucide-react";
 import { CustomerLogoutButton } from "@/components/auth/customer-logout-button";
-import { Badge, Card, Container, EmptyState, Heading, Price, Section } from "@/components/ui";
+import { CustomerDeliveryFields } from "@/components/customer/customer-delivery-fields";
+import { Badge, Button, Card, Container, EmptyState, Heading, Price, Section } from "@/components/ui";
+import { updateCustomerDeliveryProfileAction } from "@/features/customers/actions";
 import { getCustomerAccount } from "@/features/customers/queries";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +17,15 @@ const orderStatusLabels = {
   cancelled: "ملغي"
 };
 
-export default async function AccountPage() {
+type AccountPageProps = {
+  searchParams: Promise<{
+    status?: string;
+    message?: string;
+  }>;
+};
+
+export default async function AccountPage({ searchParams }: AccountPageProps) {
+  const params = await searchParams;
   const account = await getCustomerAccount();
 
   if (!account) {
@@ -33,6 +43,7 @@ export default async function AccountPage() {
           >
             مرحبا {account.profile?.full_name ?? "بك"}
           </Heading>
+          <AccountStatusMessage status={params.status} message={params.message} />
         </Container>
       </Section>
 
@@ -65,49 +76,90 @@ export default async function AccountPage() {
               <CustomerLogoutButton className="w-full" />
             </aside>
 
-            <Card className="overflow-hidden shadow-none">
-              <div className="border-b border-oud-brown/10 p-5">
+            <div className="min-w-0 space-y-5">
+              <Card className="p-5 shadow-none">
                 <h2 className="font-display text-2xl font-bold text-oud-brown">
-                  الطلبات الأخيرة
+                  بيانات التوصيل الافتراضية
                 </h2>
-              </div>
-
-              {account.orders.length > 0 ? (
-                <div className="divide-y divide-oud-brown/10">
-                  {account.orders.map((order) => (
-                    <div
-                      key={order.id}
-                      className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
-                    >
-                      <div>
-                        <p className="font-semibold text-oud-brown" dir="ltr">
-                          {order.order_number}
-                        </p>
-                        <p className="mt-1 text-xs text-oud-muted">{formatDate(order.created_at)}</p>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-3">
-                        <Badge variant={order.status === "cancelled" ? "danger" : "gold"}>
-                          {orderStatusLabels[order.status] ?? order.status}
-                        </Badge>
-                        <Price value={order.total_omr} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="p-5">
-                  <EmptyState
-                    title="لا توجد طلبات بعد"
-                    description="ستظهر طلباتك هنا بعد إتمام أول طلب من المتجر."
-                    icon={<PackageCheck className="size-5" aria-hidden="true" />}
+                <p className="mt-2 text-sm leading-7 text-oud-muted">
+                  سنستخدم هذه البيانات لتعبئة صفحة إتمام الطلب تلقائيا، ويمكنك تعديلها أثناء الطلب.
+                </p>
+                <form action={updateCustomerDeliveryProfileAction} className="mt-5 space-y-4">
+                  <CustomerDeliveryFields
+                    phone={account.profile?.phone}
+                    governorate={account.profile?.governorate}
+                    wilayat={account.profile?.wilayat}
+                    area={account.profile?.area}
+                    detailedAddress={account.profile?.detailed_address}
                   />
+                  <Button type="submit">حفظ بيانات التوصيل</Button>
+                </form>
+              </Card>
+
+              <Card className="overflow-hidden shadow-none">
+                <div className="border-b border-oud-brown/10 p-5">
+                  <h2 className="font-display text-2xl font-bold text-oud-brown">
+                    الطلبات الأخيرة
+                  </h2>
                 </div>
-              )}
-            </Card>
+
+                {account.orders.length > 0 ? (
+                  <div className="divide-y divide-oud-brown/10">
+                    {account.orders.map((order) => (
+                      <div
+                        key={order.id}
+                        className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div>
+                          <p className="font-semibold text-oud-brown" dir="ltr">
+                            {order.order_number}
+                          </p>
+                          <p className="mt-1 text-xs text-oud-muted">
+                            {formatDate(order.created_at)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                          <Badge variant={order.status === "cancelled" ? "danger" : "gold"}>
+                            {orderStatusLabels[order.status] ?? order.status}
+                          </Badge>
+                          <Price value={order.total_omr} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-5">
+                    <EmptyState
+                      title="لا توجد طلبات بعد"
+                      description="ستظهر طلباتك هنا بعد إتمام أول طلب من المتجر."
+                      icon={<PackageCheck className="size-5" aria-hidden="true" />}
+                    />
+                  </div>
+                )}
+              </Card>
+            </div>
           </div>
         </Container>
       </Section>
     </main>
+  );
+}
+
+function AccountStatusMessage({ status, message }: { status?: string; message?: string }) {
+  if (!message) {
+    return null;
+  }
+
+  return (
+    <div
+      className={
+        status === "error"
+          ? "rounded-oud border border-red-900/15 bg-red-900/10 px-4 py-3 text-sm font-semibold text-red-900"
+          : "rounded-oud border border-green-900/15 bg-green-900/10 px-4 py-3 text-sm font-semibold text-green-900"
+      }
+    >
+      {message}
+    </div>
   );
 }
 

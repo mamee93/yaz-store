@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import {
   incrementCouponUsage,
   validateCouponForSubtotal
@@ -14,7 +15,7 @@ import {
 } from "@/features/email/templates/order-confirmation-email";
 import { createOrderNotification } from "@/features/notifications/actions";
 import { getDeliveryFee, getDeliveryMethod } from "@/constants/oman-delivery";
-import { checkoutSchema } from "@/validations/checkout-schema";
+import { checkoutSchema, type CheckoutFormValues } from "@/validations/checkout-schema";
 import type { Database, Json } from "@/types/database";
 
 type ProductCheckoutRow = {
@@ -189,25 +190,28 @@ export async function createCheckoutOrderAction(formData: FormData) {
   let customerId: string | null = null;
   let addressId: string | null = null;
   let orderId: string | null = null;
+  let shouldCleanupCustomer = false;
 
   try {
-    const { data: customer, error: customerError } = await supabase
-      .from("customers")
-      .insert({
-        full_name: checkout.fullName,
-        phone: checkout.phone,
-        whatsapp_number: checkout.whatsapp,
-        email: checkout.email
-      } as Database["public"]["Tables"]["customers"]["Insert"] as never)
-      .select("id")
-      .single()
-      .returns<CheckoutInsertIds>();
-
-    if (customerError || !customer) {
-      throw new Error("customer");
-    }
+    const saveDeliveryProfile = formData.get("saveDeliveryProfile") === "1";
+    const accountUser = await getCheckoutAuthUser();
+    const existingCustomer = accountUser
+      ? await getExistingCheckoutCustomer(accountUser.id, accountUser.email)
+      : null;
+    const customer = existingCustomer
+      ? await updateCheckoutCustomer(
+          existingCustomer.id,
+          accountUser?.id ?? null,
+          checkout,
+          saveDeliveryProfile
+        )
+      : await createCheckoutCustomer({
+          authUserId: accountUser?.id ?? null,
+          checkout
+        });
 
     customerId = customer.id;
+    shouldCleanupCustomer = !existingCustomer;
 
     const { data: address, error: addressError } = await supabase
       .from("addresses")
@@ -335,11 +339,119 @@ export async function createCheckoutOrderAction(formData: FormData) {
       await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.used_count);
     }
   } catch {
-    await cleanupFailedOrder({ customerId, addressId, orderId });
+    await cleanupFailedOrder({ customerId, addressId, orderId, shouldCleanupCustomer });
     redirectWithCheckoutError("تعذر إنشاء الطلب. حاول مرة أخرى.");
   }
 
   redirect(`/order-confirmation/${orderNumber}?clearCart=1`);
+}
+
+type CheckoutCustomerInput = CheckoutFormValues;
+
+async function getCheckoutAuthUser() {
+  const supabase = await createClient();
+  const {
+    data: { user }
+  } = await supabase.auth.getUser();
+
+  return user ? { id: user.id, email: user.email ?? null } : null;
+}
+
+async function getExistingCheckoutCustomer(authUserId: string, email: string | null) {
+  const supabase = createAdminClient();
+  const { data: byAuthUser } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("auth_user_id", authUserId)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .returns<CheckoutInsertIds | null>();
+
+  if (byAuthUser) {
+    return byAuthUser;
+  }
+
+  if (!email) {
+    return null;
+  }
+
+  const { data: byEmail } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("email", email)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .returns<CheckoutInsertIds | null>();
+
+  return byEmail;
+}
+
+async function createCheckoutCustomer({
+  authUserId,
+  checkout
+}: {
+  authUserId: string | null;
+  checkout: CheckoutCustomerInput;
+}) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .insert({
+      auth_user_id: authUserId,
+      full_name: checkout.fullName,
+      phone: checkout.phone,
+      whatsapp_number: checkout.whatsapp,
+      email: checkout.email,
+      governorate: checkout.governorate,
+      wilayat: checkout.wilayat,
+      area: checkout.area,
+      detailed_address: checkout.addressLine
+    } as Database["public"]["Tables"]["customers"]["Insert"] as never)
+    .select("id")
+    .single()
+    .returns<CheckoutInsertIds>();
+
+  if (error || !data) {
+    throw new Error("customer");
+  }
+
+  return data;
+}
+
+async function updateCheckoutCustomer(
+  customerId: string,
+  authUserId: string | null,
+  checkout: CheckoutCustomerInput,
+  saveDeliveryProfile: boolean
+) {
+  if (!saveDeliveryProfile) {
+    return { id: customerId };
+  }
+
+  const supabase = createAdminClient();
+  const updatePayload: Database["public"]["Tables"]["customers"]["Update"] = {
+    auth_user_id: authUserId,
+    full_name: checkout.fullName,
+    phone: checkout.phone,
+    whatsapp_number: checkout.whatsapp,
+    email: checkout.email,
+    governorate: checkout.governorate,
+    wilayat: checkout.wilayat,
+    area: checkout.area,
+    detailed_address: checkout.addressLine
+  };
+  const { error } = await supabase
+    .from("customers")
+    .update(updatePayload as never)
+    .eq("id", customerId);
+
+  if (error) {
+    throw new Error("customer_update");
+  }
+
+  return { id: customerId };
 }
 
 async function getCheckoutStoreSettings(): Promise<CheckoutStoreSettings> {
@@ -473,11 +585,13 @@ function buildShippingArea({
 async function cleanupFailedOrder({
   customerId,
   addressId,
-  orderId
+  orderId,
+  shouldCleanupCustomer
 }: {
   customerId: string | null;
   addressId: string | null;
   orderId: string | null;
+  shouldCleanupCustomer: boolean;
 }) {
   const supabase = createAdminClient();
 
@@ -489,7 +603,7 @@ async function cleanupFailedOrder({
     await supabase.from("addresses").delete().eq("id", addressId);
   }
 
-  if (customerId) {
+  if (customerId && shouldCleanupCustomer) {
     await supabase.from("customers").delete().eq("id", customerId);
   }
 }

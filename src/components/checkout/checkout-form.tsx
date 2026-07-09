@@ -11,6 +11,7 @@ import {
 } from "@/constants/oman-delivery";
 import { cn } from "@/utils/cn";
 import { PaymentMethodSelector } from "./payment-method-selector";
+import type { CustomerProfile } from "@/features/auth/queries";
 import type { CartItem } from "@/stores/cart-store";
 
 type CheckoutFormProps = {
@@ -19,6 +20,7 @@ type CheckoutFormProps = {
   selectedDeliveryMethod: DeliveryMethod;
   onDeliveryMethodChange: (method: DeliveryMethod) => void;
   couponCode?: string | null;
+  customer?: CustomerProfile | null;
 };
 
 const defaultGovernorate = OMAN_GOVERNORATES[0]?.name ?? "مسقط";
@@ -28,11 +30,17 @@ export function CheckoutForm({
   items,
   selectedDeliveryMethod,
   onDeliveryMethodChange,
-  couponCode
+  couponCode,
+  customer
 }: CheckoutFormProps) {
-  const [governorate, setGovernorate] = useState<string>(defaultGovernorate);
+  const initialGovernorate = customer?.governorate || defaultGovernorate;
+  const [governorate, setGovernorate] = useState<string>(initialGovernorate);
   const wilayats = useMemo(() => getGovernorateWilayats(governorate), [governorate]);
-  const [wilayat, setWilayat] = useState<string>(wilayats[0] ?? "");
+  const [wilayat, setWilayat] = useState<string>(
+    customer?.wilayat && wilayats.includes(customer.wilayat)
+      ? customer.wilayat
+      : (wilayats[0] ?? "")
+  );
 
   function handleGovernorateChange(value: string) {
     const nextWilayats = getGovernorateWilayats(value);
@@ -58,9 +66,17 @@ export function CheckoutForm({
             label="الاسم الكامل"
             name="fullName"
             placeholder="مثال: أحمد الهاشمي"
+            defaultValue={customer?.full_name ?? ""}
             required
           />
-          <Input label="رقم الهاتف" name="phone" type="tel" placeholder="9XXXXXXX" required />
+          <Input
+            label="رقم الهاتف"
+            name="phone"
+            type="tel"
+            placeholder="9XXXXXXX"
+            defaultValue={customer?.phone ?? ""}
+            required
+          />
           <Input
             label="واتساب اختياري"
             name="whatsapp"
@@ -72,6 +88,7 @@ export function CheckoutForm({
             name="email"
             type="email"
             placeholder="name@example.com"
+            defaultValue={customer?.email ?? ""}
             dir="ltr"
           />
         </div>
@@ -107,11 +124,18 @@ export function CheckoutForm({
               </option>
             ))}
           </Select>
-          <Input label="المنطقة" name="area" placeholder="مثال: الخوير" required />
+          <Input
+            label="المنطقة"
+            name="area"
+            placeholder="مثال: الخوير"
+            defaultValue={customer?.area ?? ""}
+            required
+          />
           <Input
             label="العنوان التفصيلي"
             name="addressLine"
             placeholder="رقم المبنى، الشارع، أقرب معلم"
+            defaultValue={customer?.detailed_address ?? ""}
             required
           />
           <Textarea
@@ -120,6 +144,17 @@ export function CheckoutForm({
             placeholder="وقت مناسب للتواصل أو تفاصيل إضافية"
             className="md:col-span-2"
           />
+          {customer?.id ? (
+            <label className="flex items-start gap-2 rounded-oud border border-oud-brown/10 bg-oud-beige/20 px-3 py-3 text-sm leading-6 text-oud-brown md:col-span-2">
+              <input
+                name="saveDeliveryProfile"
+                type="checkbox"
+                value="1"
+                className="mt-1 size-4 accent-oud-brown"
+              />
+              حفظ هذه البيانات كعنوان التوصيل الافتراضي في حسابي
+            </label>
+          ) : null}
         </div>
       </section>
 

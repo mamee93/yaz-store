@@ -146,6 +146,10 @@ export type Database = {
           phone: string;
           email: string | null;
           whatsapp_number: string | null;
+          governorate: string | null;
+          wilayat: string | null;
+          area: string | null;
+          detailed_address: string | null;
           notes: string | null;
           created_at: string;
           updated_at: string;

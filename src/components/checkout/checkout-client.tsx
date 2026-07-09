@@ -13,11 +13,13 @@ import {
   type CouponValidationState
 } from "@/features/coupons/actions";
 import { createCheckoutOrderAction } from "@/features/checkout/actions";
+import type { CustomerProfile } from "@/features/auth/queries";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import { useCart } from "@/hooks/use-cart";
 
 type CheckoutClientProps = {
   settings: StoreSettingsRead | null;
+  customer: CustomerProfile | null;
 };
 
 const initialCouponState: CouponValidationState = {
@@ -30,7 +32,7 @@ const initialCouponState: CouponValidationState = {
   cartSignature: ""
 };
 
-export function CheckoutClient({ settings }: CheckoutClientProps) {
+export function CheckoutClient({ settings, customer }: CheckoutClientProps) {
   const searchParams = useSearchParams();
   const { isHydrated, items } = useCart();
   const [selectedDeliveryMethod, setSelectedDeliveryMethod] =
@@ -81,6 +83,7 @@ export function CheckoutClient({ settings }: CheckoutClientProps) {
                 selectedDeliveryMethod={selectedDeliveryMethod}
                 onDeliveryMethodChange={setSelectedDeliveryMethod}
                 couponCode={activeCouponState.code}
+                customer={customer}
               />
 
               <aside className="min-w-0 space-y-4 lg:sticky lg:top-24">

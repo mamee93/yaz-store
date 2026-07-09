@@ -81,7 +81,15 @@ export async function requireAdminPathAccess(pathname: string) {
 
 export type CustomerProfile = Pick<
   Database["public"]["Tables"]["customers"]["Row"],
-  "auth_user_id" | "full_name" | "phone" | "email" | "created_at"
+  | "auth_user_id"
+  | "full_name"
+  | "phone"
+  | "email"
+  | "governorate"
+  | "wilayat"
+  | "area"
+  | "detailed_address"
+  | "created_at"
 > & {
   id: string | null;
 };
@@ -108,7 +116,7 @@ export async function getCurrentCustomer() {
   const admin = createAdminClient();
   const { data, error } = await admin
     .from("customers")
-    .select("id,auth_user_id,full_name,phone,email,created_at")
+    .select("id,auth_user_id,full_name,phone,email,governorate,wilayat,area,detailed_address,created_at")
     .or(filter)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -122,6 +130,10 @@ export async function getCurrentCustomer() {
       full_name: user.user_metadata?.full_name ?? user.email ?? "عميل عود ياز",
       phone: user.user_metadata?.phone ?? "",
       email: user.email ?? null,
+      governorate: null,
+      wilayat: null,
+      area: null,
+      detailed_address: null,
       created_at: user.created_at
     } satisfies CustomerProfile & { id: null };
   }
@@ -133,6 +145,10 @@ export async function getCurrentCustomer() {
       full_name: user.user_metadata?.full_name ?? user.email ?? "عميل عود ياز",
       phone: user.user_metadata?.phone ?? "",
       email: user.email ?? null,
+      governorate: null,
+      wilayat: null,
+      area: null,
+      detailed_address: null,
       created_at: user.created_at
     }
   );

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { customerDeliveryProfileSchema } from "@/validations/customer-profile-schema";
 
 function loginRedirect(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -50,6 +51,13 @@ export async function registerCustomerAction(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const password = String(formData.get("password") ?? "");
+  const deliveryProfile = customerDeliveryProfileSchema.safeParse({
+    phone,
+    governorate: formData.get("governorate"),
+    wilayat: formData.get("wilayat"),
+    area: formData.get("area"),
+    detailed_address: formData.get("detailed_address")
+  });
 
   if (!fullName) {
     loginRedirect("/register", "يرجى إدخال الاسم الكامل.");
@@ -65,6 +73,13 @@ export async function registerCustomerAction(formData: FormData) {
 
   if (password.length < 6) {
     loginRedirect("/register", "كلمة المرور يجب أن تكون 6 أحرف على الأقل.");
+  }
+
+  if (!deliveryProfile.success) {
+    loginRedirect(
+      "/register",
+      deliveryProfile.error.issues[0]?.message ?? "تحقق من بيانات التوصيل."
+    );
   }
 
   const supabase = await createClient();
@@ -88,8 +103,12 @@ export async function registerCustomerAction(formData: FormData) {
     {
       auth_user_id: data.user.id,
       full_name: fullName,
-      phone,
-      email
+      phone: deliveryProfile.data.phone,
+      email,
+      governorate: deliveryProfile.data.governorate,
+      wilayat: deliveryProfile.data.wilayat,
+      area: deliveryProfile.data.area,
+      detailed_address: deliveryProfile.data.detailed_address
     } as never,
     {
       onConflict: "auth_user_id"

@@ -1,5 +1,10 @@
 import { createReadClient } from "@/features/supabase-read";
+import { requireAdminRole } from "@/features/auth/queries";
+import { createAdminClient } from "@/lib/supabase/admin";
 import type { OfferPreview } from "@/components/storefront/offers-preview";
+import type { Database } from "@/types/database";
+
+export type BannerRow = Database["public"]["Tables"]["banners"]["Row"];
 
 export type BannerRead = {
   id: string;
@@ -40,6 +45,31 @@ export async function getActiveBanners(placement?: string) {
   }
 
   return (data ?? []) as BannerRead[];
+}
+
+export async function getAdminBanners() {
+  const admin = await requireAdminRole(["owner", "manager"]);
+
+  if (!admin) {
+    return [];
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("banners")
+    .select(
+      "id,title_ar,title_en,subtitle_ar,subtitle_en,image_url,mobile_image_url,link_url,button_label_ar,button_label_en,placement,sort_order,is_active,starts_at,ends_at,created_at,updated_at"
+    )
+    .order("sort_order", { ascending: true })
+    .order("created_at", { ascending: false })
+    .returns<BannerRow[]>();
+
+  if (error) {
+    console.error("Failed to read admin banners", error);
+    return [];
+  }
+
+  return data ?? [];
 }
 
 export function mapBannerToOffer(banner: BannerRead): OfferPreview {
