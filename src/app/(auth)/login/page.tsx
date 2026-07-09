@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { LogIn } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
 import { customerLoginAction } from "@/features/auth/actions";
-import { getCurrentCustomer } from "@/features/auth/queries";
+import { getCurrentAdmin, getCurrentCustomer } from "@/features/auth/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,11 @@ type LoginPageProps = {
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const customer = await getCurrentCustomer();
+  const [admin, customer] = await Promise.all([getCurrentAdmin(), getCurrentCustomer()]);
+
+  if (admin) {
+    redirect("/admin");
+  }
 
   if (customer) {
     redirect("/account");

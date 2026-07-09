@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { randomUUID } from "crypto";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { storeSettingsSchema } from "@/validations/store-settings-schema";
 import type { Database } from "@/types/database";
@@ -20,10 +20,10 @@ type ExistingSettingsAssetRow = {
 };
 
 export async function updateStoreSettingsAction(formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة الإعدادات.");
   }
 
   const parsed = storeSettingsSchema.safeParse(Object.fromEntries(formData.entries()));

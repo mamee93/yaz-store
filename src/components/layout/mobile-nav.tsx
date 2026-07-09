@@ -19,9 +19,14 @@ type MobileNavProps = {
     label: string;
   }>;
   isCustomerLoggedIn?: boolean;
+  isAdminLoggedIn?: boolean;
 };
 
-export function MobileNav({ items, isCustomerLoggedIn = false }: MobileNavProps) {
+export function MobileNav({
+  items,
+  isCustomerLoggedIn = false,
+  isAdminLoggedIn = false
+}: MobileNavProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuId = useId();
 
@@ -103,14 +108,14 @@ export function MobileNav({ items, isCustomerLoggedIn = false }: MobileNavProps)
               السلة
             </Link>
             <Link
-              href={isCustomerLoggedIn ? "/account" : "/login"}
+              href={isAdminLoggedIn ? "/admin" : isCustomerLoggedIn ? "/account" : "/login"}
               className="flex items-center gap-3 rounded-oud px-3 py-3 text-sm font-semibold text-oud-muted hover:bg-oud-beige/45 hover:text-oud-brown"
               onClick={() => setIsOpen(false)}
             >
               <UserRound className="size-4" aria-hidden="true" />
-              {isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول"}
+              {isAdminLoggedIn ? "لوحة التحكم" : isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول"}
             </Link>
-            {isCustomerLoggedIn ? (
+            {isCustomerLoggedIn || isAdminLoggedIn ? (
               <CustomerLogoutButton className="w-full justify-center" />
             ) : null}
             <Link

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createClient } from "@/lib/supabase/server";
 import { categorySchema } from "@/validations/category-schema";
 import type { Database } from "@/types/database";
@@ -83,7 +83,7 @@ export async function updateCategoryAction(categoryId: string, formData: FormDat
 }
 
 export async function softDeleteCategoryAction(categoryId: string) {
-  await assertAdmin();
+  await assertOwner();
 
   const supabase = await createClient();
   const { data: existing } = await supabase
@@ -112,10 +112,18 @@ export async function softDeleteCategoryAction(categoryId: string) {
 }
 
 async function assertAdmin() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة التصنيفات.");
+  }
+}
+
+async function assertOwner() {
+  const admin = await requireAdminRole(["owner"]);
+
+  if (!admin) {
+    redirect("/admin/categories?status=error&message=الحذف متاح للمالك فقط.");
   }
 }
 

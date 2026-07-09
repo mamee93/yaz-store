@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const bucketName = "product-images";
@@ -174,10 +174,10 @@ export async function setPrimaryProductImageAction(imageId: string) {
 }
 
 async function assertAdmin() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة صور المنتجات.");
   }
 }
 

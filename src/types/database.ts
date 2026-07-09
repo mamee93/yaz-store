@@ -14,9 +14,11 @@ export type Database = {
           id: string;
           auth_user_id: string;
           full_name: string | null;
+          display_name: string | null;
           email: string;
-          role: string;
+          role: "owner" | "manager" | "order_staff" | "viewer";
           is_active: boolean;
+          invited_by: string | null;
           created_at: string;
           updated_at: string;
         };

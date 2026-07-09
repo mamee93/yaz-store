@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateOrderSchema, type OrderStatusValue } from "@/validations/order-schema";
 import type { Database } from "@/types/database";
@@ -39,10 +39,10 @@ const allowedTransitions: Record<OrderStatusValue, OrderStatusValue[]> = {
 };
 
 export async function updateOrderAction(orderId: string, formData: FormData) {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager", "order_staff"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect(`/admin/orders/${orderId}?status=error&message=ليست لديك صلاحية لتحديث الطلب.`);
   }
 
   const parsed = updateOrderSchema.safeParse({

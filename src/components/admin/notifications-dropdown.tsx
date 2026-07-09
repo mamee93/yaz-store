@@ -26,17 +26,17 @@ export async function NotificationsDropdown() {
         <NotificationBadge count={unreadCount} />
       </button>
 
-      <div className="invisible absolute left-0 top-12 z-50 w-[min(22rem,calc(100vw-1.5rem))] opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
-        <div className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-3 shadow-soft">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div>
+      <div className="invisible fixed left-3 right-3 top-14 z-50 w-auto max-w-[calc(100vw-24px)] opacity-0 transition group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100 sm:absolute sm:left-0 sm:right-auto sm:top-12 sm:w-[22rem] sm:max-w-[22rem]">
+        <div className="overflow-hidden rounded-oud border border-oud-brown/10 bg-oud-pearl p-3 shadow-soft">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
               <p className="font-semibold text-oud-brown">التنبيهات</p>
               <p className="text-xs text-oud-muted">
                 {unreadCount > 0 ? `${unreadCount} غير مقروء` : "كل التنبيهات مقروءة"}
               </p>
             </div>
             {unreadCount > 0 ? (
-              <form action={markAllNotificationsReadAction}>
+              <form action={markAllNotificationsReadAction} className="max-w-full shrink-0">
                 <Button
                   type="submit"
                   variant="ghost"
@@ -49,7 +49,7 @@ export async function NotificationsDropdown() {
             ) : null}
           </div>
 
-          <div className="max-h-[26rem] overflow-y-auto">
+          <div className="max-h-[26rem] overflow-y-auto [&_a]:max-w-full [&_a]:whitespace-normal [&_button]:max-w-full [&_button]:whitespace-normal [&_h3]:break-words [&_p]:break-words">
             <NotificationsList notifications={notifications} compact />
           </div>
 

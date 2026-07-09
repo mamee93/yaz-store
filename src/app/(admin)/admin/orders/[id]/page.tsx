@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
 import { OrderDetailView } from "@/components/admin/order-detail-view";
+import { canManageOrders } from "@/constants/admin-roles";
+import { requireAdmin } from "@/features/auth/queries";
 import { getAdminOrderById } from "@/features/orders/queries";
 
 type AdminOrderPageProps = {
@@ -14,7 +16,11 @@ type AdminOrderPageProps = {
 };
 
 export default async function AdminOrderPage({ params, searchParams }: AdminOrderPageProps) {
-  const [{ id }, resolvedSearchParams] = await Promise.all([params, searchParams]);
+  const [{ id }, resolvedSearchParams, admin] = await Promise.all([
+    params,
+    searchParams,
+    requireAdmin()
+  ]);
   const order = await getAdminOrderById(id);
 
   if (!order) {
@@ -32,7 +38,7 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
         status={resolvedSearchParams.status}
         message={resolvedSearchParams.message}
       />
-      <OrderDetailView order={order} />
+      <OrderDetailView order={order} canUpdateOrder={admin ? canManageOrders(admin.role) : false} />
     </div>
   );
 }

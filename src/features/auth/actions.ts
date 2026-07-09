@@ -25,13 +25,17 @@ export async function customerLoginAction(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password
   });
 
-  if (error) {
+  if (error || !data.user) {
     loginRedirect("/login", "بيانات الدخول غير صحيحة.");
+  }
+
+  if (await isActiveAdminUser(data.user.id)) {
+    redirect("/admin");
   }
 
   redirect("/account");
@@ -131,8 +135,7 @@ export async function adminLoginAction(formData: FormData) {
     .returns<{ id: string; is_active: boolean } | null>();
 
   if (adminError || !admin) {
-    await supabase.auth.signOut();
-    loginRedirect("/admin/login", "هذا الحساب غير مصرح له بدخول لوحة الإدارة.");
+    redirect("/account");
   }
 
   if (!admin.is_active) {
@@ -141,6 +144,18 @@ export async function adminLoginAction(formData: FormData) {
   }
 
   redirect("/admin");
+}
+
+async function isActiveAdminUser(userId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("admins")
+    .select("is_active")
+    .eq("auth_user_id", userId)
+    .maybeSingle()
+    .returns<{ is_active: boolean } | null>();
+
+  return Boolean(data?.is_active);
 }
 
 export async function customerLogoutAction() {

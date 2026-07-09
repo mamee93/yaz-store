@@ -1,13 +1,19 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import {
+  canAccessAdminPath,
+  normalizeAdminRole,
+  type AdminRole
+} from "@/constants/admin-roles";
 import type { Database } from "@/types/database";
 
 export type AdminProfile = {
   id: string;
   auth_user_id: string;
   full_name: string | null;
+  display_name: string | null;
   email: string;
-  role: string;
+  role: AdminRole;
   is_active: boolean;
 };
 
@@ -28,7 +34,7 @@ export async function getCurrentAdmin() {
 
   const { data, error } = await supabase
     .from("admins")
-    .select("id,auth_user_id,full_name,email,role,is_active")
+    .select("id,auth_user_id,full_name,display_name,email,role,is_active")
     .eq("auth_user_id", user.id)
     .maybeSingle()
     .returns<AdminProfile | null>();
@@ -37,13 +43,36 @@ export async function getCurrentAdmin() {
     return null;
   }
 
-  return data;
+  return {
+    ...data,
+    role: normalizeAdminRole(data.role)
+  };
 }
 
 export async function requireAdmin() {
   const admin = await getCurrentAdmin();
 
   if (!admin) {
+    return null;
+  }
+
+  return admin;
+}
+
+export async function requireAdminRole(allowedRoles: AdminRole[]) {
+  const admin = await requireAdmin();
+
+  if (!admin || !allowedRoles.includes(admin.role)) {
+    return null;
+  }
+
+  return admin;
+}
+
+export async function requireAdminPathAccess(pathname: string) {
+  const admin = await requireAdmin();
+
+  if (!admin || !canAccessAdminPath(admin.role, pathname)) {
     return null;
   }
 

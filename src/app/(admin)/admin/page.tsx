@@ -7,10 +7,12 @@ import { RecentOrdersCard } from "@/components/admin/recent-orders-card";
 import { SalesChart } from "@/components/admin/sales-chart";
 import { TopCustomersCard } from "@/components/admin/top-customers-card";
 import { TopProductsCard } from "@/components/admin/top-products-card";
+import { requireAdmin } from "@/features/auth/queries";
 import { getDashboardAnalytics } from "@/features/analytics/queries";
 
 export default async function AdminDashboardPage() {
-  const analytics = await getDashboardAnalytics();
+  const [admin, analytics] = await Promise.all([requireAdmin(), getDashboardAnalytics()]);
+  const canUseQuickActions = admin?.role === "owner" || admin?.role === "manager";
 
   return (
     <div className="min-w-0 space-y-5 sm:space-y-6">
@@ -53,7 +55,7 @@ export default async function AdminDashboardPage() {
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-6">
         <CouponPerformanceCard coupons={analytics.couponPerformance} />
-        <AdminQuickActions />
+        {canUseQuickActions ? <AdminQuickActions /> : null}
       </div>
     </div>
   );

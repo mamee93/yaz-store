@@ -12,10 +12,12 @@ import {
   Settings,
   Truck,
   TicketPercent,
+  UserCog,
   Users
 } from "lucide-react";
 import { LogoutButton } from "@/components/admin/logout-button";
 import { NotificationsDropdown } from "@/components/admin/notifications-dropdown";
+import { canAccessAdminPath, type AdminRole } from "@/constants/admin-roles";
 import { siteConfig } from "@/constants/site";
 
 const adminNavItems = [
@@ -23,6 +25,7 @@ const adminNavItems = [
   { href: "/admin/products", label: "المنتجات", icon: Boxes },
   { href: "/admin/categories", label: "التصنيفات", icon: FolderTree },
   { href: "/admin/orders", label: "الطلبات", icon: ClipboardList },
+  { href: "/admin/team", label: "الفريق", icon: UserCog },
   { href: "/admin/notifications", label: "التنبيهات", icon: BellRing },
   { href: "/admin/customers", label: "العملاء", icon: Users },
   { href: "/admin/coupons", label: "الكوبونات", icon: TicketPercent },
@@ -35,13 +38,17 @@ const adminNavItems = [
 export function AdminShell({
   children,
   storeName,
-  logoUrl
+  logoUrl,
+  adminRole
 }: {
   children: React.ReactNode;
   storeName?: string;
   logoUrl?: string | null;
+  adminRole: AdminRole;
 }) {
   const displayName = storeName ?? siteConfig.name;
+  const visibleNavItems = adminNavItems.filter((item) => canAccessAdminPath(adminRole, item.href));
+  const canViewNotifications = canAccessAdminPath(adminRole, "/admin/notifications");
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f6f0e7] text-oud-ink">
@@ -57,7 +64,7 @@ export function AdminShell({
         </Link>
 
         <nav className="mt-6 space-y-1 text-sm" aria-label="تنقل الإدارة">
-          {adminNavItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
 
             return (
@@ -87,7 +94,7 @@ export function AdminShell({
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <NotificationsDropdown />
+              {canViewNotifications ? <NotificationsDropdown /> : null}
               <Link
                 href="/"
                 className="inline-flex h-9 items-center justify-center gap-2 whitespace-nowrap rounded-oud border border-oud-brown/10 bg-white px-2.5 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/35 md:h-10 md:px-4"
@@ -106,7 +113,7 @@ export function AdminShell({
           aria-label="تنقل الإدارة"
         >
           <div className="flex max-w-full gap-2 overflow-x-auto pb-1">
-            {adminNavItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
 
               return (

@@ -16,7 +16,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const logoUrl = settings?.logo_url?.trim() || null;
 
   return (
-    <AdminShell storeName={storeName} logoUrl={logoUrl}>
+    <AdminShell storeName={storeName} logoUrl={logoUrl} adminRole={admin.role}>
       {children}
     </AdminShell>
   );

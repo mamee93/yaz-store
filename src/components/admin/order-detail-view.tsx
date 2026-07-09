@@ -7,6 +7,7 @@ import { OrderStatusSelect, orderStatusLabels } from "./order-status-select";
 
 type OrderDetailViewProps = {
   order: AdminOrderDetail;
+  canUpdateOrder?: boolean;
 };
 
 const paymentMethodLabels = {
@@ -21,7 +22,7 @@ const deliveryMethodLabels = {
   home_delivery: "توصيل للمنزل"
 };
 
-export function OrderDetailView({ order }: OrderDetailViewProps) {
+export function OrderDetailView({ order, canUpdateOrder = true }: OrderDetailViewProps) {
   const updateAction = updateOrderAction.bind(null, order.id);
   const address = parseAddressSnapshot(order.delivery_address_snapshot);
 
@@ -135,17 +136,23 @@ export function OrderDetailView({ order }: OrderDetailViewProps) {
 
         <Card className="p-4 shadow-none sm:p-5">
           <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">إدارة الطلب</h2>
-          <form action={updateAction} className="mt-5 space-y-4">
-            <OrderStatusSelect defaultValue={order.status} />
-            <Textarea
-              label="ملاحظات الإدارة"
-              name="admin_notes"
-              defaultValue={order.admin_notes ?? ""}
-            />
-            <Button type="submit" className="w-full" leftIcon={<Save className="size-4" />}>
-              تحديث الطلب
-            </Button>
-          </form>
+          {canUpdateOrder ? (
+            <form action={updateAction} className="mt-5 space-y-4">
+              <OrderStatusSelect defaultValue={order.status} />
+              <Textarea
+                label="ملاحظات الإدارة"
+                name="admin_notes"
+                defaultValue={order.admin_notes ?? ""}
+              />
+              <Button type="submit" className="w-full" leftIcon={<Save className="size-4" />}>
+                تحديث الطلب
+              </Button>
+            </form>
+          ) : (
+            <p className="mt-4 rounded-oud bg-oud-beige/35 p-3 text-sm leading-7 text-oud-muted">
+              لديك صلاحية مشاهدة فقط. لا يمكنك تحديث حالة الطلب أو ملاحظات الإدارة.
+            </p>
+          )}
         </Card>
       </aside>
     </div>

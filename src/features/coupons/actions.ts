@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { couponSchema, checkoutCouponSchema } from "@/validations/coupon-schema";
 import type { Database } from "@/types/database";
@@ -319,10 +319,10 @@ function getCartSignature(items: Array<{ productId: string; quantity: number }>)
 }
 
 async function assertAdmin() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة الكوبونات.");
   }
 }
 

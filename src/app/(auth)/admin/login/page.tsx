@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { LockKeyhole } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
 import { adminLoginAction } from "@/features/auth/actions";
-import { getCurrentAdmin } from "@/features/auth/queries";
+import { getCurrentAdmin, getCurrentCustomer } from "@/features/auth/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +14,14 @@ type AdminLoginPageProps = {
 };
 
 export default async function AdminLoginPage({ searchParams }: AdminLoginPageProps) {
-  const admin = await getCurrentAdmin();
+  const [admin, customer] = await Promise.all([getCurrentAdmin(), getCurrentCustomer()]);
 
   if (admin) {
     redirect("/admin");
+  }
+
+  if (customer) {
+    redirect("/account");
   }
 
   const params = await searchParams;

@@ -7,7 +7,7 @@ import { CustomerLogoutButton } from "@/components/auth/customer-logout-button";
 import { siteConfig } from "@/constants/site";
 import { useCart } from "@/hooks/use-cart";
 import { MobileNav } from "./mobile-nav";
-import type { CustomerProfile } from "@/features/auth/queries";
+import type { AdminProfile, CustomerProfile } from "@/features/auth/queries";
 
 export const storeNavItems = [
   { href: "/", label: "الرئيسية" },
@@ -20,16 +20,21 @@ export const storeNavItems = [
 export function SiteHeader({
   storeName,
   logoUrl,
-  customer
+  customer,
+  admin
 }: {
   storeName?: string;
   logoUrl?: string | null;
   customer?: CustomerProfile | null;
+  admin?: AdminProfile | null;
 }) {
   const { itemCount } = useCart();
   const displayName = storeName ?? siteConfig.name;
   const normalizedLogoUrl = logoUrl?.trim() || null;
   const isCustomerLoggedIn = Boolean(customer);
+  const isAdminLoggedIn = Boolean(admin);
+  const accountHref = isAdminLoggedIn ? "/admin" : isCustomerLoggedIn ? "/account" : "/login";
+  const accountLabel = isAdminLoggedIn ? "لوحة التحكم" : isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول";
 
   return (
     <header className="sticky top-0 z-40 border-b border-oud-brown/10 bg-oud-ivory/95 backdrop-blur-xl">
@@ -79,13 +84,13 @@ export function SiteHeader({
             <span className="sr-only">عدد عناصر السلة: {itemCount}</span>
           </Link>
           <Link
-            href={isCustomerLoggedIn ? "/account" : "/login"}
+            href={accountHref}
             className="hidden h-9 items-center justify-center gap-2 rounded-md px-3 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/50 md:inline-flex"
           >
             <UserRound className="size-4" aria-hidden="true" />
-            {isCustomerLoggedIn ? "حسابي" : "تسجيل الدخول"}
+            {accountLabel}
           </Link>
-          {isCustomerLoggedIn ? (
+          {isCustomerLoggedIn || isAdminLoggedIn ? (
             <CustomerLogoutButton className="hidden h-9 px-3 text-xs md:inline-flex" compact />
           ) : null}
           <Link
@@ -95,7 +100,11 @@ export function SiteHeader({
             <MessageCircle className="size-4" aria-hidden="true" />
             واتساب
           </Link>
-          <MobileNav items={storeNavItems} isCustomerLoggedIn={isCustomerLoggedIn} />
+          <MobileNav
+            items={storeNavItems}
+            isCustomerLoggedIn={isCustomerLoggedIn}
+            isAdminLoggedIn={isAdminLoggedIn}
+          />
         </div>
       </div>
     </header>

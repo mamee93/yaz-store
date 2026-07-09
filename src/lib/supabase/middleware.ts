@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { CookieOptions } from "@supabase/ssr";
+import { canAccessAdminPath, normalizeAdminRole, type AdminRole } from "@/constants/admin-roles";
 import type { Database } from "@/types/database";
 
 type CookieToSet = {
@@ -11,6 +12,7 @@ type CookieToSet = {
 
 type MiddlewareAdmin = {
   is_active: boolean;
+  role: string;
 };
 
 export async function updateSession(request: NextRequest) {
@@ -68,12 +70,13 @@ export async function updateSession(request: NextRequest) {
 
   const { data: admin } = await supabase
     .from("admins")
-    .select("is_active")
+    .select("is_active,role")
     .eq("auth_user_id", user.id)
     .maybeSingle()
     .returns<MiddlewareAdmin | null>();
 
   const isActiveAdmin = Boolean(admin?.is_active);
+  const role: AdminRole = normalizeAdminRole(admin?.role);
 
   if (isAdminRoute && !isAdminLoginRoute && !isActiveAdmin) {
     await supabase.auth.signOut();
@@ -81,6 +84,15 @@ export async function updateSession(request: NextRequest) {
       response,
       redirectToLogin(request, "هذا الحساب غير مصرح له بدخول لوحة الإدارة.")
     );
+  }
+
+  if (isAdminRoute && !isAdminLoginRoute && !canAccessAdminPath(role, pathname)) {
+    const redirectUrl = request.nextUrl.clone();
+    redirectUrl.pathname = "/admin";
+    redirectUrl.search = "";
+    redirectUrl.searchParams.set("status", "error");
+    redirectUrl.searchParams.set("message", "ليست لديك صلاحية للوصول إلى هذا القسم.");
+    return withSessionCookies(response, NextResponse.redirect(redirectUrl));
   }
 
   if (isAdminLoginRoute && isActiveAdmin) {

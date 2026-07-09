@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createClient } from "@/lib/supabase/server";
 import { productSchema } from "@/validations/product-schema";
 import type { Database } from "@/types/database";
@@ -114,7 +114,7 @@ export async function updateProductAction(productId: string, formData: FormData)
 }
 
 export async function softDeleteProductAction(productId: string) {
-  await assertAdmin();
+  await assertOwner();
 
   const supabase = await createClient();
   const { data: existing } = await supabase
@@ -143,10 +143,18 @@ export async function softDeleteProductAction(productId: string) {
 }
 
 async function assertAdmin() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة المنتجات.");
+  }
+}
+
+async function assertOwner() {
+  const admin = await requireAdminRole(["owner"]);
+
+  if (!admin) {
+    redirect("/admin/products?status=error&message=الحذف متاح للمالك فقط.");
   }
 }
 

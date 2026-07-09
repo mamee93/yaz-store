@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { requireAdmin } from "@/features/auth/queries";
+import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { shippingZoneSchema } from "@/validations/shipping-schema";
 import type { Database } from "@/types/database";
@@ -150,10 +150,10 @@ export async function calculateShippingForCheckout({
 }
 
 async function assertAdmin() {
-  const admin = await requireAdmin();
+  const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirect("/login");
+    redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة التوصيل.");
   }
 }
 
