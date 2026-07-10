@@ -17,6 +17,7 @@ type CategorySlugRow = {
 
 const adminCategoriesPath = "/admin/categories";
 const categoryImagesBucket = "category-images";
+const legacyCategoryImageBuckets = ["categories", "category", "category-image", "category_images"];
 const maxCategoryImageSize = 5 * 1024 * 1024;
 const allowedCategoryImageTypes = new Set(["image/jpeg", "image/png", "image/webp", "image/svg+xml"]);
 
@@ -102,7 +103,7 @@ export async function updateCategoryAction(categoryId: string, formData: FormDat
     payload.image_url = uploadedImage.publicUrl;
     uploadedImagePath = uploadedImage.storagePath;
   } else {
-    payload.image_url = existing?.image_url ?? null;
+    payload.image_url = normalizeCategoryImageUrl(existing?.image_url);
   }
 
   const { error } = await supabase
@@ -207,7 +208,7 @@ async function uploadCategoryImage(file: File, categoryId = crypto.randomUUID())
   }
 
   const { data } = supabase.storage.from(categoryImagesBucket).getPublicUrl(storagePath);
-  return { publicUrl: data.publicUrl, storagePath };
+  return { publicUrl: normalizeCategoryImageUrl(data.publicUrl) ?? data.publicUrl, storagePath };
 }
 
 async function deleteCategoryImageByUrl(url?: string | null) {
@@ -228,15 +229,32 @@ function getCategoryImagePathFromUrl(url?: string | null) {
     return null;
   }
 
-  const marker = `/storage/v1/object/public/${categoryImagesBucket}/`;
-  const markerIndex = url.indexOf(marker);
+  for (const bucketName of [categoryImagesBucket, ...legacyCategoryImageBuckets]) {
+    const marker = `/storage/v1/object/public/${bucketName}/`;
+    const markerIndex = url.indexOf(marker);
 
-  if (markerIndex === -1) {
+    if (markerIndex !== -1) {
+      const pathWithQuery = url.slice(markerIndex + marker.length);
+      return decodeURIComponent(pathWithQuery.split("?")[0] ?? "");
+    }
+  }
+
+  return null;
+}
+
+function normalizeCategoryImageUrl(url?: string | null) {
+  if (!url) {
     return null;
   }
 
-  const pathWithQuery = url.slice(markerIndex + marker.length);
-  return decodeURIComponent(pathWithQuery.split("?")[0] ?? "");
+  return legacyCategoryImageBuckets.reduce(
+    (normalizedUrl, bucketName) =>
+      normalizedUrl.replace(
+        `/storage/v1/object/public/${bucketName}/`,
+        `/storage/v1/object/public/${categoryImagesBucket}/`
+      ),
+    url
+  );
 }
 
 function getImageExtension(file: File) {
