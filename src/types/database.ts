@@ -13,11 +13,15 @@ export type Database = {
         Row: {
           id: string;
           auth_user_id: string;
-          full_name: string | null;
+          full_name: string;
           display_name: string | null;
           email: string;
-          role: "owner" | "manager" | "order_staff" | "viewer";
+          phone: string | null;
+          role: "owner" | "manager" | "cashier" | "staff";
           is_active: boolean;
+          must_change_password: boolean;
+          last_sign_in_at: string | null;
+          created_by: string | null;
           invited_by: string | null;
           created_at: string;
           updated_at: string;
@@ -27,6 +31,27 @@ export type Database = {
           email: string;
         };
         Update: Partial<Database["public"]["Tables"]["admins"]["Row"]>;
+        Relationships: [];
+      };
+      admin_audit_logs: {
+        Row: {
+          id: string;
+          admin_id: string | null;
+          auth_user_id: string | null;
+          admin_name: string | null;
+          admin_role: string | null;
+          action: string;
+          entity_type: string;
+          entity_id: string | null;
+          description: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["admin_audit_logs"]["Row"]> & {
+          action: string;
+          entity_type: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["admin_audit_logs"]["Row"]>;
         Relationships: [];
       };
       categories: {
@@ -218,6 +243,11 @@ export type Database = {
           confirmed_at: string | null;
           completed_at: string | null;
           cancelled_at: string | null;
+          created_by_admin_id: string | null;
+          updated_by_admin_id: string | null;
+          confirmed_by_admin_id: string | null;
+          completed_by_admin_id: string | null;
+          cancelled_by_admin_id: string | null;
           created_at: string;
           updated_at: string;
         };

@@ -1,20 +1,23 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Plus } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { TeamMemberForm } from "@/components/admin/team-member-form";
 import { TeamMembersTable } from "@/components/admin/team-members-table";
-import { Card } from "@/components/ui";
-import {
-  ADMIN_ROLES,
-  adminRoleDescriptions,
-  adminRoleLabels
-} from "@/constants/admin-roles";
+import { Badge, Card, Input, Select } from "@/components/ui";
+import { ADMIN_ROLES, adminRoleLabels } from "@/constants/admin-roles";
 import { requireAdminRole } from "@/features/auth/queries";
 import { getTeamMembers } from "@/features/team/queries";
 
 export default async function AdminTeamPage({
   searchParams
 }: {
-  searchParams: Promise<{ status?: string; message?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    message?: string;
+    q?: string;
+    role?: string;
+    member_status?: string;
+  }>;
 }) {
   const owner = await requireAdminRole(["owner"]);
 
@@ -22,38 +25,86 @@ export default async function AdminTeamPage({
     redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة الفريق.");
   }
 
-  const [members, params] = await Promise.all([getTeamMembers(), searchParams]);
+  const params = await searchParams;
+  const members = await getTeamMembers({
+    search: params.q,
+    role: params.role,
+    status: params.member_status
+  });
+  const stats = buildStats(members);
 
   return (
     <div className="space-y-6">
-      <AdminPageHeader
-        eyebrow="الفريق والصلاحيات"
-        title="إدارة فريق العمل"
-        description="تحكم في صلاحيات الموظفين الذين يساعدون في تشغيل المتجر ومعالجة الطلبات."
-      />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <AdminPageHeader
+          eyebrow="الفريق والصلاحيات"
+          title="إدارة فريق العمل"
+          description="أنشئ حسابا مستقلا لكل إداري، وحدد صلاحياته، وتابع نشاطه داخل لوحة الإدارة."
+        />
+        <Link
+          href="/admin/team/new"
+          className="inline-flex h-11 items-center justify-center gap-2 rounded-oud bg-oud-brown px-5 text-sm font-semibold text-oud-ivory shadow-soft transition hover:bg-oud-coffee"
+        >
+          <Plus className="size-4" aria-hidden="true" />
+          إضافة عضو
+        </Link>
+      </div>
 
       <StatusMessage status={params.status} message={params.message} />
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
-        <div className="space-y-5">
-          <TeamMembersTable members={members} currentAdminId={owner.id} />
-        </div>
-        <aside className="space-y-5 xl:sticky xl:top-24">
-          <TeamMemberForm />
-          <Card className="p-4 shadow-none sm:p-5">
-            <h2 className="font-display text-xl font-bold text-oud-brown">ملخص الصلاحيات</h2>
-            <div className="mt-4 space-y-3 text-sm leading-7 text-oud-muted">
-              {ADMIN_ROLES.map((role) => (
-                <p key={role}>
-                  <span className="font-bold text-oud-brown">{adminRoleLabels[role]}:</span>{" "}
-                  {adminRoleDescriptions[role]}
-                </p>
-              ))}
-            </div>
-          </Card>
-        </aside>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="أعضاء الفريق" value={stats.total} />
+        <StatCard label="النشطون" value={stats.active} tone="success" />
+        <StatCard label="الموقوفون" value={stats.inactive} tone="danger" />
+        <StatCard label="المالكون والمديرون" value={stats.leaders} />
       </div>
+
+      <Card className="p-4 shadow-none">
+        <form className="grid gap-3 md:grid-cols-[minmax(0,1fr)_14rem_14rem_auto] md:items-end">
+          <Input label="بحث بالاسم أو البريد" name="q" defaultValue={params.q ?? ""} />
+          <Select label="الدور" name="role" defaultValue={params.role ?? "all"}>
+            <option value="all">كل الأدوار</option>
+            {ADMIN_ROLES.map((role) => (
+              <option key={role} value={role}>
+                {adminRoleLabels[role]}
+              </option>
+            ))}
+          </Select>
+          <Select label="الحالة" name="member_status" defaultValue={params.member_status ?? "all"}>
+            <option value="all">كل الحالات</option>
+            <option value="active">نشط</option>
+            <option value="inactive">معطل</option>
+          </Select>
+          <button className="h-11 rounded-oud bg-oud-brown px-5 text-sm font-semibold text-oud-ivory" type="submit">
+            تطبيق
+          </button>
+        </form>
+      </Card>
+
+      <TeamMembersTable members={members} currentAdminId={owner.id} />
     </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tone = "default"
+}: {
+  label: string;
+  value: number;
+  tone?: "default" | "success" | "danger";
+}) {
+  const variant = tone === "success" ? "success" : tone === "danger" ? "danger" : "gold";
+
+  return (
+    <Card className="p-4 shadow-none">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold text-oud-muted">{label}</p>
+        <Badge variant={variant}>{value}</Badge>
+      </div>
+      <p className="mt-3 font-display text-3xl font-bold text-oud-brown">{value}</p>
+    </Card>
   );
 }
 
@@ -73,4 +124,13 @@ function StatusMessage({ status, message }: { status?: string; message?: string 
       {message}
     </div>
   );
+}
+
+function buildStats(members: Awaited<ReturnType<typeof getTeamMembers>>) {
+  return {
+    total: members.length,
+    active: members.filter((member) => member.is_active).length,
+    inactive: members.filter((member) => !member.is_active).length,
+    leaders: members.filter((member) => member.role === "owner" || member.role === "manager").length
+  };
 }

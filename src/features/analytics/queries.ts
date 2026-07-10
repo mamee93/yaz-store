@@ -15,6 +15,11 @@ export type AnalyticsOrder = {
   coupon_code: string | null;
   customer_name_snapshot: string;
   customer_phone_snapshot: string;
+  created_by_admin_id: string | null;
+  updated_by_admin_id: string | null;
+  confirmed_by_admin_id: string | null;
+  completed_by_admin_id: string | null;
+  cancelled_by_admin_id: string | null;
   created_at: string;
 };
 
@@ -56,6 +61,15 @@ export type AnalyticsCoupon = {
   is_active: boolean;
 };
 
+export type AnalyticsAdminLite = {
+  id: string;
+  full_name: string;
+  display_name: string | null;
+  role: string;
+  is_active: boolean;
+  last_sign_in_at: string | null;
+};
+
 export type DashboardAnalytics = {
   kpis: {
     totalRevenue: number;
@@ -63,7 +77,12 @@ export type DashboardAnalytics = {
     totalCustomers: number;
     averageOrderValue: number;
     todayRevenue: number;
-    monthRevenue: number;
+    last30DaysRevenue: number;
+    todayOrders: number;
+    completedOrders: number;
+    inProgressOrders: number;
+    cancelledOrders: number;
+    newCustomers30Days: number;
   };
   statusCounts: Record<OrderStatus, number>;
   sales7Days: SalesTrendPoint[];
@@ -73,6 +92,7 @@ export type DashboardAnalytics = {
   lowStockProducts: LowStockProductItem[];
   recentOrders: RecentOrderItem[];
   couponPerformance: CouponPerformanceItem[];
+  alerts: DashboardAlert[];
 };
 
 export type SalesTrendPoint = {
@@ -115,6 +135,7 @@ export type RecentOrderItem = {
   status: OrderStatus;
   total: number;
   createdAt: string;
+  attributedAdminName: string | null;
 };
 
 export type CouponPerformanceItem = {
@@ -124,6 +145,12 @@ export type CouponPerformanceItem = {
   revenue: number;
   discount: number;
   isActive: boolean;
+};
+
+export type DashboardAlert = {
+  id: string;
+  label: string;
+  count: number;
 };
 
 const orderStatuses: OrderStatus[] = [
@@ -148,12 +175,13 @@ export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
     { data: orderItems, error: orderItemsError },
     { data: customers, error: customersError },
     { data: products, error: productsError },
-    { data: coupons, error: couponsError }
+    { data: coupons, error: couponsError },
+    { data: admins, error: adminsError }
   ] = await Promise.all([
     supabase
       .from("orders")
       .select(
-        "id,order_number,customer_id,status,total_omr,subtotal_omr,discount_omr,coupon_code,customer_name_snapshot,customer_phone_snapshot,created_at"
+        "id,order_number,customer_id,status,total_omr,subtotal_omr,discount_omr,coupon_code,customer_name_snapshot,customer_phone_snapshot,created_by_admin_id,updated_by_admin_id,confirmed_by_admin_id,completed_by_admin_id,cancelled_by_admin_id,created_at"
       )
       .order("created_at", { ascending: false })
       .returns<AnalyticsOrder[]>(),
@@ -172,13 +200,17 @@ export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
     supabase
       .from("coupons")
       .select("id,code,name,discount_type,discount_value,used_count,is_active")
-      .returns<AnalyticsCoupon[]>()
+      .returns<AnalyticsCoupon[]>(),
+    supabase
+      .from("admins")
+      .select("id,full_name,display_name,role,is_active,last_sign_in_at")
+      .returns<AnalyticsAdminLite[]>()
   ]);
 
-  if (ordersError || orderItemsError || customersError || productsError || couponsError) {
+  if (ordersError || orderItemsError || customersError || productsError || couponsError || adminsError) {
     console.error(
       "Failed to read dashboard analytics",
-      ordersError ?? orderItemsError ?? customersError ?? productsError ?? couponsError
+      ordersError ?? orderItemsError ?? customersError ?? productsError ?? couponsError ?? adminsError
     );
     return getEmptyAnalytics();
   }
@@ -188,7 +220,8 @@ export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
     orderItems: orderItems ?? [],
     customers: customers ?? [],
     products: products ?? [],
-    coupons: coupons ?? []
+    coupons: coupons ?? [],
+    admins: admins ?? []
   });
 }
 
@@ -197,28 +230,38 @@ function buildDashboardAnalytics({
   orderItems,
   customers,
   products,
-  coupons
+  coupons,
+  admins
 }: {
   orders: AnalyticsOrder[];
   orderItems: AnalyticsOrderItem[];
   customers: AnalyticsCustomer[];
   products: AnalyticsProduct[];
   coupons: AnalyticsCoupon[];
+  admins: AnalyticsAdminLite[];
 }): DashboardAnalytics {
-  const revenueOrders = orders.filter((order) => order.status !== "cancelled");
+  const revenueOrders = orders.filter((order) => order.status === "completed");
   const totalRevenue = sum(revenueOrders.map((order) => order.total_omr));
   const todayKey = toDateKey(new Date());
-  const monthPrefix = todayKey.slice(0, 7);
+  const last30Start = new Date();
+  last30Start.setDate(last30Start.getDate() - 29);
+  last30Start.setHours(0, 0, 0, 0);
   const todayRevenue = sum(
     revenueOrders.filter((order) => toDateKey(order.created_at) === todayKey).map((order) => order.total_omr)
   );
-  const monthRevenue = sum(
-    revenueOrders.filter((order) => toDateKey(order.created_at).startsWith(monthPrefix)).map((order) => order.total_omr)
+  const last30DaysRevenue = sum(
+    revenueOrders.filter((order) => new Date(order.created_at) >= last30Start).map((order) => order.total_omr)
   );
+  const completedOrders = orders.filter((order) => order.status === "completed").length;
+  const cancelledOrders = orders.filter((order) => order.status === "cancelled").length;
+  const inProgressOrders = orders.filter((order) =>
+    ["confirmed", "preparing", "out_for_delivery"].includes(order.status)
+  ).length;
   const averageOrderValue =
     revenueOrders.length > 0 ? roundMoney(totalRevenue / revenueOrders.length) : 0;
   const revenueOrderIds = new Set(revenueOrders.map((order) => order.id));
   const ordersById = new Map(orders.map((order) => [order.id, order]));
+  const adminsById = new Map(admins.map((admin) => [admin.id, admin]));
 
   return {
     kpis: {
@@ -227,7 +270,12 @@ function buildDashboardAnalytics({
       totalCustomers: customers.length,
       averageOrderValue,
       todayRevenue,
-      monthRevenue
+      last30DaysRevenue,
+      todayOrders: orders.filter((order) => toDateKey(order.created_at) === todayKey).length,
+      completedOrders,
+      inProgressOrders,
+      cancelledOrders,
+      newCustomers30Days: customers.filter((customer) => new Date(customer.created_at) >= last30Start).length
     },
     statusCounts: buildStatusCounts(orders),
     sales7Days: buildSalesTrend(revenueOrders, 7),
@@ -253,10 +301,27 @@ function buildDashboardAnalytics({
       phone: order.customer_phone_snapshot,
       status: order.status,
       total: order.total_omr,
-      createdAt: order.created_at
+      createdAt: order.created_at,
+      attributedAdminName: getAttributedAdminName(order, adminsById)
     })),
-    couponPerformance: buildCouponPerformance(coupons, revenueOrders, ordersById)
+    couponPerformance: buildCouponPerformance(coupons, revenueOrders, ordersById),
+    alerts: buildDashboardAlerts(orders, admins)
   };
+}
+
+function getAttributedAdminName(
+  order: AnalyticsOrder,
+  adminsById: Map<string, AnalyticsAdminLite>
+) {
+  const adminId =
+    order.cancelled_by_admin_id ??
+    order.completed_by_admin_id ??
+    order.confirmed_by_admin_id ??
+    order.updated_by_admin_id ??
+    order.created_by_admin_id;
+  const admin = adminId ? adminsById.get(adminId) : null;
+
+  return admin ? admin.display_name || admin.full_name : null;
 }
 
 function buildStatusCounts(orders: AnalyticsOrder[]) {
@@ -388,6 +453,37 @@ function buildCouponPerformance(
     .slice(0, 8);
 }
 
+function buildDashboardAlerts(orders: AnalyticsOrder[], admins: AnalyticsAdminLite[]) {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const fourteenDaysMs = 14 * dayMs;
+  const pendingOver24h = orders.filter(
+    (order) => order.status === "pending" && now - new Date(order.created_at).getTime() > dayMs
+  ).length;
+  const delayedActiveOrders = orders.filter(
+    (order) =>
+      (order.status === "confirmed" || order.status === "preparing") &&
+      now - new Date(order.created_at).getTime() > dayMs
+  ).length;
+  const inactiveAdmins = admins.filter(
+    (admin) =>
+      admin.is_active &&
+      (!admin.last_sign_in_at || now - new Date(admin.last_sign_in_at).getTime() > fourteenDaysMs)
+  ).length;
+
+  return [
+    pendingOver24h > 0
+      ? { id: "pending-over-24h", label: "طلبات pending منذ أكثر من 24 ساعة", count: pendingOver24h }
+      : null,
+    delayedActiveOrders > 0
+      ? { id: "delayed-active-orders", label: "طلبات مؤكدة أو قيد التجهيز متأخرة", count: delayedActiveOrders }
+      : null,
+    inactiveAdmins > 0
+      ? { id: "inactive-admins", label: "إداريون لم يسجلوا الدخول منذ 14 يوما", count: inactiveAdmins }
+      : null
+  ].filter((alert): alert is DashboardAlert => Boolean(alert));
+}
+
 function getEmptyAnalytics(): DashboardAnalytics {
   return {
     kpis: {
@@ -396,7 +492,12 @@ function getEmptyAnalytics(): DashboardAnalytics {
       totalCustomers: 0,
       averageOrderValue: 0,
       todayRevenue: 0,
-      monthRevenue: 0
+      last30DaysRevenue: 0,
+      todayOrders: 0,
+      completedOrders: 0,
+      inProgressOrders: 0,
+      cancelledOrders: 0,
+      newCustomers30Days: 0
     },
     statusCounts: buildStatusCounts([]),
     sales7Days: buildSalesTrend([], 7),
@@ -405,7 +506,8 @@ function getEmptyAnalytics(): DashboardAnalytics {
     topCustomers: [],
     lowStockProducts: [],
     recentOrders: [],
-    couponPerformance: []
+    couponPerformance: [],
+    alerts: []
   };
 }
 

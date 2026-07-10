@@ -7,6 +7,7 @@ import {
   ClipboardList,
   ExternalLink,
   FolderTree,
+  History,
   Image as ImageIcon,
   LayoutDashboard,
   Settings,
@@ -17,15 +18,18 @@ import {
 } from "lucide-react";
 import { LogoutButton } from "@/components/admin/logout-button";
 import { NotificationsDropdown } from "@/components/admin/notifications-dropdown";
-import { canAccessAdminPath, type AdminRole } from "@/constants/admin-roles";
+import { adminRoleLabels, canAccessAdminPath } from "@/constants/admin-roles";
 import { siteConfig } from "@/constants/site";
+import type { AdminProfile } from "@/features/auth/queries";
 
 const adminNavItems = [
   { href: "/admin", label: "لوحة التحكم", icon: LayoutDashboard },
   { href: "/admin/products", label: "المنتجات", icon: Boxes },
   { href: "/admin/categories", label: "التصنيفات", icon: FolderTree },
   { href: "/admin/orders", label: "الطلبات", icon: ClipboardList },
-  { href: "/admin/team", label: "الفريق", icon: UserCog },
+  { href: "/admin/team", label: "الفريق والصلاحيات", icon: UserCog },
+  { href: "/admin/team/performance", label: "أداء الفريق", icon: ChartNoAxesColumnIncreasing },
+  { href: "/admin/activity", label: "سجل النشاط", icon: History },
   { href: "/admin/notifications", label: "التنبيهات", icon: BellRing },
   { href: "/admin/customers", label: "العملاء", icon: Users },
   { href: "/admin/coupons", label: "الكوبونات", icon: TicketPercent },
@@ -39,16 +43,17 @@ export function AdminShell({
   children,
   storeName,
   logoUrl,
-  adminRole
+  admin
 }: {
   children: React.ReactNode;
   storeName?: string;
   logoUrl?: string | null;
-  adminRole: AdminRole;
+  admin: AdminProfile;
 }) {
   const displayName = storeName ?? siteConfig.name;
-  const visibleNavItems = adminNavItems.filter((item) => canAccessAdminPath(adminRole, item.href));
-  const canViewNotifications = canAccessAdminPath(adminRole, "/admin/notifications");
+  const adminName = admin.display_name || admin.full_name;
+  const visibleNavItems = adminNavItems.filter((item) => canAccessAdminPath(admin.role, item.href));
+  const canViewNotifications = canAccessAdminPath(admin.role, "/admin/notifications");
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#f6f0e7] text-oud-ink">
@@ -86,11 +91,12 @@ export function AdminShell({
           <div className="flex min-h-14 w-full min-w-0 items-center justify-between gap-2 px-3 py-2 sm:px-4 md:min-h-16 md:gap-3 md:px-6 md:py-3">
             <div className="min-w-0">
               <p className="truncate text-sm font-bold leading-5 text-oud-brown">
-                إدارة عود ياز
+                مرحبا، {adminName}
               </p>
               <p className="text-xs leading-4 text-oud-muted">
-                <span className="md:hidden">لوحة الإدارة</span>
-                <span className="hidden md:inline">واجهة تشغيل ثابتة للعرض فقط</span>
+                <Link href={`/admin/team/${admin.id}`} className="font-semibold text-oud-brown hover:text-oud-gold">
+                  {adminRoleLabels[admin.role]}
+                </Link>
               </p>
             </div>
             <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">

@@ -2,8 +2,11 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { normalizeAdminRole } from "@/constants/admin-roles";
+import { logAdminActivity } from "@/features/admin-audit/log";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import type { AdminProfile } from "@/features/auth/queries";
 
 function loginRedirect(path: string, message: string): never {
   redirect(`${path}?error=${encodeURIComponent(message)}`);
@@ -268,6 +271,8 @@ export async function adminLoginAction(formData: FormData) {
     );
   }
 
+  await recordAdminLogin(admin);
+
   redirect("/admin");
 }
 
@@ -289,13 +294,18 @@ async function getAdminLoginProfile(userId: string) {
 
   const { data, error } = await supabase
     .from("admins")
-    .select("id,is_active")
+    .select("id,auth_user_id,full_name,display_name,email,phone,role,is_active,must_change_password,last_sign_in_at,created_by")
     .eq("auth_user_id", userId)
     .maybeSingle()
-    .returns<{ id: string; is_active: boolean } | null>();
+    .returns<(Omit<AdminProfile, "role"> & { role: string }) | null>();
 
   return {
-    admin: data,
+    admin: data
+      ? {
+          ...data,
+          role: normalizeAdminRole(data.role)
+        }
+      : null,
     error
   };
 }
@@ -306,8 +316,59 @@ export async function customerLogoutAction() {
 }
 
 export async function adminLogoutAction() {
+  await recordAdminLogout("adminLogoutAction");
   await safeSignOut("adminLogoutAction");
   redirect("/admin/login");
+}
+
+async function recordAdminLogin(admin: AdminProfile) {
+  try {
+    const supabase = createAdminClient();
+    await supabase
+      .from("admins")
+      .update({ last_sign_in_at: new Date().toISOString() })
+      .eq("id", admin.id);
+
+    await logAdminActivity({
+      admin,
+      action: "admin.login",
+      entityType: "admin",
+      entityId: admin.id,
+      description: "تسجيل دخول إلى لوحة الإدارة"
+    });
+  } catch (error) {
+    console.error("recordAdminLogin failed", error);
+  }
+}
+
+export async function recordAdminLogout(source: string) {
+  try {
+    const supabase = await createClient();
+    const {
+      data: { user }
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      return;
+    }
+
+    const { admin } = await getAdminLoginProfile(user.id);
+
+    if (!admin) {
+      return;
+    }
+
+    await logAdminActivity({
+      admin,
+      action: "admin.logout",
+      entityType: "admin",
+      entityId: admin.id,
+      description: "تسجيل خروج من لوحة الإدارة",
+      metadata: { source }
+    });
+  } catch (error) {
+    console.error(`${source} audit log failed`, error);
+  }
 }
 
 async function safeSignOut(source: string) {

@@ -2,7 +2,7 @@ import {
   CalendarDays,
   ClipboardList,
   TrendingUp,
-  Users,
+  UserPlus,
   WalletCards
 } from "lucide-react";
 import { Card, Price } from "@/components/ui";
@@ -15,45 +15,57 @@ type DashboardKpiCardsProps = {
 export function DashboardKpiCards({ kpis }: DashboardKpiCardsProps) {
   const items = [
     {
-      label: "إجمالي الإيرادات",
-      value: <Price value={kpis.totalRevenue} className="text-2xl" />,
-      hint: "باستثناء الطلبات الملغاة",
+      label: "مبيعات اليوم",
+      value: <Price value={kpis.todayRevenue} className="text-2xl" />,
+      hint: "الطلبات المكتملة فقط",
       icon: WalletCards
     },
     {
-      label: "إجمالي الطلبات",
-      value: kpis.totalOrders.toString(),
-      hint: "كل الحالات",
-      icon: ClipboardList
-    },
-    {
-      label: "إجمالي العملاء",
-      value: kpis.totalCustomers.toString(),
-      hint: "عملاء checkout",
-      icon: Users
-    },
-    {
-      label: "متوسط الطلب",
-      value: <Price value={kpis.averageOrderValue} className="text-2xl" />,
-      hint: "إيرادات / الطلبات غير الملغاة",
+      label: "مبيعات آخر 30 يوما",
+      value: <Price value={kpis.last30DaysRevenue} className="text-2xl" />,
+      hint: "status = completed",
       icon: TrendingUp
     },
     {
-      label: "إيرادات اليوم",
-      value: <Price value={kpis.todayRevenue} className="text-2xl" />,
+      label: "طلبات اليوم",
+      value: kpis.todayOrders.toString(),
       hint: "حسب تاريخ إنشاء الطلب",
       icon: CalendarDays
     },
     {
-      label: "إيرادات الشهر",
-      value: <Price value={kpis.monthRevenue} className="text-2xl" />,
-      hint: "الشهر الحالي",
+      label: "الطلبات المكتملة",
+      value: kpis.completedOrders.toString(),
+      hint: "إجمالي الطلبات المكتملة",
+      icon: ClipboardList
+    },
+    {
+      label: "قيد التنفيذ",
+      value: kpis.inProgressOrders.toString(),
+      hint: "confirmed / preparing / out_for_delivery",
+      icon: ClipboardList
+    },
+    {
+      label: "الطلبات الملغاة",
+      value: kpis.cancelledOrders.toString(),
+      hint: "status = cancelled",
+      icon: ClipboardList
+    },
+    {
+      label: "متوسط قيمة الطلب",
+      value: <Price value={kpis.averageOrderValue} className="text-2xl" />,
+      hint: "إجمالي المبيعات / الطلبات المكتملة",
       icon: TrendingUp
+    },
+    {
+      label: "عملاء جدد خلال 30 يوما",
+      value: kpis.newCustomers30Days.toString(),
+      hint: "حسب تاريخ إنشاء العميل",
+      icon: UserPlus
     }
   ];
 
   return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(16rem,100%),1fr))] gap-4 xl:grid-cols-3">
+    <div className="grid grid-cols-[repeat(auto-fit,minmax(min(15rem,100%),1fr))] gap-4 xl:grid-cols-4">
       {items.map((item) => {
         const Icon = item.icon;
 

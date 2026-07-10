@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateOrderSchema, type OrderStatusValue } from "@/validations/order-schema";
@@ -39,7 +40,7 @@ const allowedTransitions: Record<OrderStatusValue, OrderStatusValue[]> = {
 };
 
 export async function updateOrderAction(orderId: string, formData: FormData) {
-  const admin = await requireAdminRole(["owner", "manager", "order_staff"]);
+  const admin = await requireAdminRole(["owner", "manager", "cashier"]);
 
   if (!admin) {
     redirect(`/admin/orders/${orderId}?status=error&message=ليست لديك صلاحية لتحديث الطلب.`);
@@ -75,7 +76,8 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
     const now = new Date().toISOString();
     const updatePayload: Database["public"]["Tables"]["orders"]["Update"] = {
       status: nextStatus,
-      admin_notes: parsed.data.admin_notes
+      admin_notes: parsed.data.admin_notes,
+      updated_by_admin_id: admin.id
     };
 
     if (nextStatus === "confirmed" && !order.stock_deducted_at) {
@@ -83,6 +85,7 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
       updatePayload.stock_deducted_at = now;
       updatePayload.confirmed_at = now;
       updatePayload.cancelled_at = null;
+      updatePayload.confirmed_by_admin_id = admin.id;
     }
 
     if (nextStatus === "cancelled") {
@@ -92,10 +95,12 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
       }
 
       updatePayload.cancelled_at = now;
+      updatePayload.cancelled_by_admin_id = admin.id;
     }
 
     if (nextStatus === "completed") {
       updatePayload.completed_at = now;
+      updatePayload.completed_by_admin_id = admin.id;
     }
 
     if (nextStatus === "confirmed" && order.stock_deducted_at) {
@@ -111,12 +116,36 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
     if (error) {
       throw error;
     }
+
+    await logAdminActivity({
+      admin,
+      action: getOrderAuditAction(nextStatus),
+      entityType: "order",
+      entityId: orderId,
+      description: `تم تحديث حالة الطلب من ${order.status} إلى ${nextStatus}`,
+      metadata: {
+        previous_status: order.status,
+        next_status: nextStatus
+      }
+    });
   } catch {
     redirectWithMessage(orderId, "error", "تعذر تحديث الطلب. تحقق من المخزون وحاول مرة أخرى.");
   }
 
   revalidateAdminOrderPaths(orderId);
   redirectWithMessage(orderId, "success", "تم تحديث الطلب بنجاح.");
+}
+
+function getOrderAuditAction(status: OrderStatusValue) {
+  if (status === "cancelled") {
+    return "order.cancel";
+  }
+
+  if (status === "completed") {
+    return "order.complete";
+  }
+
+  return "order.status_change";
 }
 
 async function getOrderForUpdate(orderId: string) {

@@ -21,7 +21,7 @@ export function RecentOrdersCard({ orders }: RecentOrdersCardProps) {
       <div className="flex items-start justify-between gap-3 border-b border-oud-brown/10 p-5">
         <div>
           <h2 className="font-display text-2xl font-bold text-oud-brown">أحدث الطلبات</h2>
-          <p className="mt-1 text-xs text-oud-muted">آخر الطلبات المسجلة</p>
+          <p className="mt-1 text-xs text-oud-muted">آخر الطلبات المسجلة مع الإداري المنسوب إن وجد</p>
         </div>
         <Link href="/admin/orders" className="text-xs font-semibold text-oud-brown">
           كل الطلبات
@@ -33,13 +33,14 @@ export function RecentOrdersCard({ orders }: RecentOrdersCardProps) {
         </div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[46rem] text-right text-sm">
+          <table className="w-full min-w-[52rem] text-right text-sm">
             <thead className="bg-oud-beige/35 text-xs text-oud-muted">
               <tr>
                 <th className="px-5 py-3 font-semibold">رقم الطلب</th>
                 <th className="px-5 py-3 font-semibold">العميل</th>
                 <th className="px-5 py-3 font-semibold">الحالة</th>
                 <th className="px-5 py-3 font-semibold">الإجمالي</th>
+                <th className="px-5 py-3 font-semibold">الإداري</th>
                 <th className="px-5 py-3 font-semibold">التاريخ</th>
               </tr>
             </thead>
@@ -58,6 +59,7 @@ export function RecentOrdersCard({ orders }: RecentOrdersCardProps) {
                   <td className="px-5 py-4">
                     <Price value={order.total} />
                   </td>
+                  <td className="px-5 py-4 text-oud-muted">{order.attributedAdminName ?? "-"}</td>
                   <td className="px-5 py-4 text-oud-muted">{formatDate(order.createdAt)}</td>
                 </tr>
               ))}

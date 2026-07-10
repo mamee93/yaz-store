@@ -10,11 +10,15 @@ import type { Database } from "@/types/database";
 export type AdminProfile = {
   id: string;
   auth_user_id: string;
-  full_name: string | null;
+  full_name: string;
   display_name: string | null;
   email: string;
+  phone: string | null;
   role: AdminRole;
   is_active: boolean;
+  must_change_password: boolean;
+  last_sign_in_at: string | null;
+  created_by: string | null;
 };
 
 export async function getCurrentAdmin() {
@@ -39,7 +43,7 @@ export async function getCurrentAdmin() {
   const adminClient = createAdminClient();
   const { data, error } = await adminClient
     .from("admins")
-    .select("id,auth_user_id,full_name,display_name,email,role,is_active")
+    .select("id,auth_user_id,full_name,display_name,email,phone,role,is_active,must_change_password,last_sign_in_at,created_by")
     .eq("auth_user_id", user.id)
     .maybeSingle()
     .returns<AdminProfile | null>();
