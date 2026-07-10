@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { getCurrentCustomer, requireAdmin } from "@/features/auth/queries";
+import { requireAdmin } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { customerDeliveryProfileSchema } from "@/validations/customer-profile-schema";
@@ -52,19 +52,19 @@ export async function updateCustomerNotesAction(customerId: string, formData: Fo
 }
 
 export async function updateCustomerDeliveryProfileAction(formData: FormData) {
-  const profile = await getCurrentCustomer();
-
-  if (!profile?.id) {
-    redirect("/login?message=يرجى تسجيل الدخول لتحديث بيانات التوصيل.");
-  }
-
   const authClient = await createClient();
+
   const {
-    data: { user }
+    data: { user },
+    error: userError
   } = await authClient.auth.getUser();
 
-  if (!user || (profile.auth_user_id && profile.auth_user_id !== user.id)) {
-    redirect("/login?message=يرجى تسجيل الدخول لتحديث بيانات التوصيل.");
+  if (userError || !user) {
+    redirect(
+      `/login?message=${encodeURIComponent(
+        "يرجى تسجيل الدخول لتحديث بيانات التوصيل."
+      )}`
+    );
   }
 
   const parsed = customerDeliveryProfileSchema.safeParse({
@@ -78,26 +78,125 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
   if (!parsed.success) {
     redirect(
       `/account?status=error&message=${encodeURIComponent(
-        parsed.error.issues[0]?.message ?? "تعذر تحديث بيانات التوصيل."
+        parsed.error.issues[0]?.message ??
+          "تحقق من بيانات التوصيل وحاول مرة أخرى."
       )}`
     );
   }
 
-  const supabase = createAdminClient();
-  const { error } = await supabase
-    .from("customers")
-    .update({
-      ...parsed.data,
-      auth_user_id: user.id
-    } as Database["public"]["Tables"]["customers"]["Update"] as never)
-    .eq("id", profile.id);
+  const fullName =
+    typeof user.user_metadata?.full_name === "string"
+      ? user.user_metadata.full_name.trim()
+      : "";
 
-  if (error) {
-    redirect("/account?status=error&message=تعذر تحديث بيانات التوصيل. حاول مرة أخرى.");
+  const email = user.email?.trim().toLowerCase() ?? null;
+  const supabase = createAdminClient();
+
+  let existingCustomer: { id: string } | null = null;
+
+  if (email) {
+    const { data, error: lookupError } = await supabase
+      .from("customers")
+      .select("id")
+      .or(`auth_user_id.eq.${user.id},email.eq.${email}`)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+      .returns<{ id: string } | null>();
+
+    if (lookupError) {
+      console.error("Customer lookup failed:", {
+        message: lookupError.message,
+        code: lookupError.code,
+        details: lookupError.details,
+        hint: lookupError.hint
+      });
+
+      redirect(
+        `/account?status=error&message=${encodeURIComponent(
+          "تعذر التحقق من ملف العميل."
+        )}`
+      );
+    }
+
+    existingCustomer = data;
+  } else {
+    const { data, error: lookupError } = await supabase
+      .from("customers")
+      .select("id")
+      .eq("auth_user_id", user.id)
+      .limit(1)
+      .maybeSingle()
+      .returns<{ id: string } | null>();
+
+    if (lookupError) {
+      console.error("Customer lookup failed:", {
+        message: lookupError.message,
+        code: lookupError.code,
+        details: lookupError.details,
+        hint: lookupError.hint
+      });
+
+      redirect(
+        `/account?status=error&message=${encodeURIComponent(
+          "تعذر التحقق من ملف العميل."
+        )}`
+      );
+    }
+
+    existingCustomer = data;
+  }
+
+  const customerPayload = {
+    auth_user_id: user.id,
+    full_name: fullName || email || "عميل عود ياز",
+    email,
+    phone: parsed.data.phone,
+    governorate: parsed.data.governorate,
+    wilayat: parsed.data.wilayat,
+    area: parsed.data.area,
+    detailed_address: parsed.data.detailed_address
+  };
+
+  let saveError = null;
+
+  if (existingCustomer) {
+    const { error } = await supabase
+      .from("customers")
+      .update(customerPayload as never)
+      .eq("id", existingCustomer.id);
+
+    saveError = error;
+  } else {
+    const { error } = await supabase
+      .from("customers")
+      .insert(customerPayload as never);
+
+    saveError = error;
+  }
+
+  if (saveError) {
+    console.error("Customer delivery profile save failed:", {
+      message: saveError.message,
+      code: saveError.code,
+      details: saveError.details,
+      hint: saveError.hint
+    });
+
+    redirect(
+      `/account?status=error&message=${encodeURIComponent(
+        "تعذر حفظ بيانات التوصيل. حاول مرة أخرى."
+      )}`
+    );
   }
 
   revalidatePath("/account");
-  redirect("/account?status=success&message=تم تحديث بيانات التوصيل بنجاح.");
+
+  redirect(
+    `/account?status=success&message=${encodeURIComponent(
+      "تم حفظ بيانات التوصيل بنجاح."
+    )}`
+  );
 }
 
 function normalizeNullableText(value: FormDataEntryValue | null) {

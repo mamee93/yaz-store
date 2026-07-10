@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { LockKeyhole } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
 import { adminLoginAction } from "@/features/auth/actions";
@@ -74,6 +75,12 @@ export default async function AdminLoginPage({ searchParams }: AdminLoginPagePro
             تسجيل الدخول
           </Button>
         </form>
+
+        <p className="mt-4 text-center text-sm text-oud-muted">
+          <Link href="/forgot-password" className="font-semibold text-oud-brown hover:text-oud-gold">
+            نسيت كلمة المرور؟
+          </Link>
+        </p>
       </Card>
     </section>
   );

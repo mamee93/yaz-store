@@ -66,6 +66,12 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </Button>
         </form>
 
+        <p className="mt-4 text-center text-sm text-oud-muted">
+          <Link href="/forgot-password" className="font-semibold text-oud-brown hover:text-oud-gold">
+            نسيت كلمة المرور؟
+          </Link>
+        </p>
+
         <p className="mt-5 text-center text-sm text-oud-muted">
           ليس لديك حساب؟{" "}
           <Link href="/register" className="font-semibold text-oud-brown hover:text-oud-gold">
