@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -184,16 +183,30 @@ async function getAdminLoginProfile(userId: string) {
 }
 
 export async function customerLogoutAction() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  revalidatePath("/", "layout");
-  redirect("/login?message=تم تسجيل الخروج بنجاح.");
+  await safeSignOut("customerLogoutAction");
+  redirect("/");
 }
 
 export async function adminLogoutAction() {
-  const supabase = await createClient();
-  await supabase.auth.signOut();
-  revalidatePath("/", "layout");
-  revalidatePath("/admin", "layout");
-  redirect("/admin/login?message=تم تسجيل الخروج بنجاح.");
+  await safeSignOut("adminLogoutAction");
+  redirect("/admin/login");
+}
+
+async function safeSignOut(source: string) {
+  try {
+    const supabase = await createClient();
+    const result = await Promise.race([
+      supabase.auth.signOut({ scope: "local" }),
+      new Promise<{ error: Error }>((resolve) => {
+        setTimeout(() => resolve({ error: new Error("Timed out while signing out locally.") }), 3000);
+      })
+    ]);
+    const { error } = result;
+
+    if (error) {
+      console.error(`${source} failed`, error.message);
+    }
+  } catch (error) {
+    console.error(`${source} failed`, error);
+  }
 }
