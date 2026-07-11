@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Edit, Trash2 } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Price } from "@/components/ui";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
+import { Badge, Card, EmptyState, Price } from "@/components/ui";
 import { softDeleteProductAction } from "@/features/products/actions";
 import type { ProductRow } from "@/features/products/queries";
 
@@ -95,17 +96,17 @@ export function ProductTable({ products }: ProductTableProps) {
                         <Edit className="size-4" aria-hidden="true" />
                         تعديل
                       </Link>
-                      <form action={deleteAction}>
-                        <Button
-                          type="submit"
-                          variant="ghost"
-                          size="sm"
-                          className="text-red-900 hover:bg-red-900/10"
-                          leftIcon={<Trash2 className="size-4" />}
-                        >
-                          حذف
-                        </Button>
-                      </form>
+                      <ConfirmActionButton
+                        action={deleteAction}
+                        triggerLabel="حذف"
+                        confirmLabel="تعطيل المنتج"
+                        title="حذف المنتج"
+                        description="سيتم إخفاء المنتج من المتجر وتعطيله للحفاظ على سجل الطلبات."
+                        itemName={product.name_ar}
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 className="size-4" />}
+                      />
                     </div>
                   </td>
                 </tr>

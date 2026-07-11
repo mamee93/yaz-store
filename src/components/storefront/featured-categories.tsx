@@ -17,7 +17,7 @@ type FeaturedCategoriesProps = {
 
 export function FeaturedCategories({ categories }: FeaturedCategoriesProps) {
   return (
-    <Section className="py-12 md:py-20">
+    <Section id="featured-categories" className="scroll-mt-24 py-12 md:py-20">
       <Container size="wide" className="space-y-8">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <Heading

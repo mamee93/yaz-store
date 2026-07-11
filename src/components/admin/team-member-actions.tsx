@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { Button } from "@/components/ui";
 import {
   deleteTestTeamMemberAction,
@@ -38,45 +39,35 @@ export function TeamMemberActions({
           عرض الملف
         </Link>
       ) : null}
-      <form
+      <ConfirmActionButton
         action={toggleAction}
-        onSubmit={(event) => {
-          const message = isActive
-            ? "هل أنت متأكد من تعطيل هذا العضو؟ لن يستطيع دخول لوحة الإدارة."
-            : "هل تريد تفعيل هذا العضو مرة أخرى؟";
-
-          if (!window.confirm(message)) {
-            event.preventDefault();
-          }
-        }}
-      >
-        <Button
-          type="submit"
-          size="sm"
-          variant={isActive ? "danger" : "gold"}
-          disabled={isActive && disableDisabled}
-        >
-          {isActive ? "تعطيل" : "تفعيل"}
-        </Button>
-      </form>
+        triggerLabel={isActive ? "تعطيل" : "تفعيل"}
+        confirmLabel={isActive ? "تعطيل الحساب" : "تفعيل الحساب"}
+        title={isActive ? "تعطيل عضو الفريق" : "تفعيل عضو الفريق"}
+        description={
+          isActive
+            ? "لن يستطيع هذا العضو دخول لوحة الإدارة بعد التعطيل."
+            : "سيستطيع هذا العضو دخول لوحة الإدارة مرة أخرى."
+        }
+        variant={isActive ? "danger" : "gold"}
+        size="sm"
+        disabled={isActive && disableDisabled}
+      />
       <form action={resetAction}>
         <Button type="submit" size="sm" variant="secondary">
           إرسال إعادة تعيين
         </Button>
       </form>
       {!isOwner && !isSelf ? (
-        <form
+        <ConfirmActionButton
           action={deleteAction}
-          onSubmit={(event) => {
-            if (!window.confirm("سيتم تعطيل الحساب بدلا من حذفه للحفاظ على سجل النشاط. متابعة؟")) {
-              event.preventDefault();
-            }
-          }}
-        >
-          <Button type="submit" size="sm" variant="ghost">
-            حذف تجريبي
-          </Button>
-        </form>
+          triggerLabel="حذف"
+          confirmLabel="تعطيل الحساب"
+          title="حذف عضو تجريبي"
+          description="سيتم تعطيل الحساب بدلا من حذفه للحفاظ على سجل النشاط."
+          variant="danger"
+          size="sm"
+        />
       ) : null}
     </div>
   );

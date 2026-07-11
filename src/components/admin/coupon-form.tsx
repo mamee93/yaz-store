@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Save, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
-import { deactivateCouponAction } from "@/features/coupons/actions";
 import type { CouponRow } from "@/features/coupons/queries";
 
 type CouponFormProps = {
@@ -12,7 +11,6 @@ type CouponFormProps = {
 
 export function CouponForm({ mode, coupon, action }: CouponFormProps) {
   const isEdit = mode === "edit";
-  const deleteAction = coupon ? deactivateCouponAction.bind(null, coupon.id) : undefined;
 
   return (
     <form action={action} className="grid gap-5 xl:grid-cols-[1fr_22rem]" aria-label="نموذج الكوبون">
@@ -137,18 +135,6 @@ export function CouponForm({ mode, coupon, action }: CouponFormProps) {
           >
             العودة للكوبونات
           </Link>
-          {deleteAction ? (
-            <Button
-              type="submit"
-              formAction={deleteAction}
-              formNoValidate
-              variant="danger"
-              className="w-full"
-              leftIcon={<Trash2 className="size-4" />}
-            >
-              حذف آمن / إيقاف
-            </Button>
-          ) : null}
         </Card>
       </aside>
     </form>

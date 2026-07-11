@@ -1,8 +1,10 @@
-import { ImageIcon, Pencil, Plus, Replace } from "lucide-react";
+import { ImageIcon, Pencil, Plus, Replace, Trash2 } from "lucide-react";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Badge, Button, Card, Input, Select, Textarea } from "@/components/ui";
 import {
   createBannerAction,
+  deleteBannerAction,
   toggleBannerStatusAction,
   updateBannerAction
 } from "@/features/banners/actions";
@@ -189,6 +191,18 @@ function BannerSectionCard({
                   <BannerImageOnlyForm banner={activeBanner} />
                 </div>
               </details>
+
+              <ConfirmActionButton
+                action={deleteBannerAction.bind(null, activeBanner.id)}
+                triggerLabel="حذف"
+                confirmLabel="حذف نهائي"
+                title="حذف البنر"
+                description="سيتم حذف البنر ومحاولة حذف صوره من التخزين إذا لم تكن مستخدمة في مكان آخر."
+                itemName={activeBanner.title_ar}
+                variant="danger"
+                size="sm"
+                icon={<Trash2 className="size-4" />}
+              />
             </>
           ) : null}
 
@@ -241,11 +255,24 @@ function BannerListItem({ banner }: { banner: BannerRow }) {
             </div>
           </details>
 
-          <form action={toggleAction}>
-            <Button type="submit" variant="secondary">
-              {banner.is_active ? "إيقاف البنر" : "تفعيل البنر"}
-            </Button>
-          </form>
+          <div className="flex flex-wrap items-center gap-2">
+            <form action={toggleAction}>
+              <Button type="submit" variant="secondary">
+                {banner.is_active ? "إيقاف البنر" : "تفعيل البنر"}
+              </Button>
+            </form>
+            <ConfirmActionButton
+              action={deleteBannerAction.bind(null, banner.id)}
+              triggerLabel="حذف"
+              confirmLabel="حذف نهائي"
+              title="حذف البنر"
+              description="سيتم حذف البنر ومحاولة حذف صوره من التخزين إذا لم تكن مستخدمة في مكان آخر."
+              itemName={banner.title_ar}
+              variant="danger"
+              size="sm"
+              icon={<Trash2 className="size-4" />}
+            />
+          </div>
         </div>
       </div>
     </div>

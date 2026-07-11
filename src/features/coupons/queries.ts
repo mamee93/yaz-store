@@ -34,6 +34,7 @@ export async function getAdminCoupons({
       "id,code,name,description,discount_type,discount_value,minimum_order_amount,maximum_discount_amount,usage_limit,used_count,starts_at,expires_at,is_active,created_at,updated_at"
     )
     .order("created_at", { ascending: false })
+    .limit(500)
     .returns<CouponRow[]>();
 
   if (error) {

@@ -132,14 +132,6 @@ export async function deleteProductImageAction(imageId: string) {
 
   const product = await getProductPath(image.product_id);
 
-  const { error: storageError } = await supabase.storage
-    .from(bucketName)
-    .remove([image.storage_path]);
-
-  if (storageError) {
-    redirectWithMessage(image.product_id, "error", "تعذر حذف الصورة من التخزين.");
-  }
-
   const { error: deleteError } = await supabase
     .from("product_images")
     .delete()
@@ -147,6 +139,14 @@ export async function deleteProductImageAction(imageId: string) {
 
   if (deleteError) {
     redirectWithMessage(image.product_id, "error", "تعذر حذف الصورة من المنتج.");
+  }
+
+  const { error: storageError } = await supabase.storage
+    .from(bucketName)
+    .remove([image.storage_path]);
+
+  if (storageError) {
+    console.warn("Failed to remove product image from storage after DB delete", storageError);
   }
 
   if (image.is_primary) {

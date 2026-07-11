@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { Save, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { Button, Card, Input } from "@/components/ui";
-import { deactivateShippingZoneAction } from "@/features/shipping/actions";
 import type { ShippingZoneRow } from "@/features/shipping/queries";
 
 type ShippingZoneFormProps = {
@@ -12,7 +11,6 @@ type ShippingZoneFormProps = {
 
 export function ShippingZoneForm({ mode, zone, action }: ShippingZoneFormProps) {
   const isEdit = mode === "edit";
-  const deleteAction = zone ? deactivateShippingZoneAction.bind(null, zone.id) : undefined;
 
   return (
     <form action={action} className="grid gap-5 xl:grid-cols-[1fr_22rem]" aria-label="نموذج منطقة التوصيل">
@@ -104,18 +102,6 @@ export function ShippingZoneForm({ mode, zone, action }: ShippingZoneFormProps) 
           >
             العودة للتوصيل
           </Link>
-          {deleteAction ? (
-            <Button
-              type="submit"
-              formAction={deleteAction}
-              formNoValidate
-              variant="danger"
-              className="w-full"
-              leftIcon={<Trash2 className="size-4" />}
-            >
-              حذف آمن / إيقاف
-            </Button>
-          ) : null}
         </Card>
       </aside>
     </form>

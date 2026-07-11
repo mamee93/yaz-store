@@ -118,21 +118,17 @@ export async function getCurrentCustomer() {
     return null;
   }
 
-  const filter = user.email
-    ? `auth_user_id.eq.${user.id},email.eq.${user.email}`
-    : `auth_user_id.eq.${user.id}`;
-
   const admin = createAdminClient();
-  const { data, error } = await admin
+  const { data: byAuthUser, error: authLookupError } = await admin
     .from("customers")
     .select("id,auth_user_id,full_name,phone,email,governorate,wilayat,area,detailed_address,created_at")
-    .or(filter)
+    .eq("auth_user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
     .returns<CustomerProfile | null>();
 
-  if (error) {
+  if (authLookupError) {
     return {
       id: null,
       auth_user_id: user.id,
@@ -147,8 +143,24 @@ export async function getCurrentCustomer() {
     } satisfies CustomerProfile & { id: null };
   }
 
+  if (byAuthUser) {
+    return byAuthUser;
+  }
+
+  const { data: unlinkedByEmail } = user.email
+    ? await admin
+        .from("customers")
+        .select("id,auth_user_id,full_name,phone,email,governorate,wilayat,area,detailed_address,created_at")
+        .eq("email", user.email)
+        .is("auth_user_id", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle()
+        .returns<CustomerProfile | null>()
+    : { data: null };
+
   return (
-    data ?? {
+    unlinkedByEmail ?? {
       id: null,
       auth_user_id: user.id,
       full_name: user.user_metadata?.full_name ?? user.email ?? "عميل عود ياز",

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { couponSchema, checkoutCouponSchema } from "@/validations/coupon-schema";
@@ -85,7 +86,7 @@ export async function updateCouponAction(couponId: string, formData: FormData) {
 }
 
 export async function toggleCouponStatusAction(couponId: string, isActive: boolean) {
-  await assertAdmin();
+  const admin = await assertAdmin();
 
   const supabase = createAdminClient();
   const { error } = await supabase
@@ -97,6 +98,14 @@ export async function toggleCouponStatusAction(couponId: string, isActive: boole
     redirectWithMessage(adminCouponsPath, "error", "تعذر تحديث حالة الكوبون.");
   }
 
+  await logAdminActivity({
+    admin,
+    action: isActive ? "coupon.enable" : "coupon.disable",
+    entityType: "coupon",
+    entityId: couponId,
+    description: isActive ? "تم تفعيل الكوبون" : "تم إيقاف الكوبون"
+  });
+
   revalidateCouponPaths(couponId);
   redirectWithMessage(
     adminCouponsPath,
@@ -107,6 +116,87 @@ export async function toggleCouponStatusAction(couponId: string, isActive: boole
 
 export async function deactivateCouponAction(couponId: string) {
   await toggleCouponStatusAction(couponId, false);
+}
+
+export async function deleteCouponAction(couponId: string) {
+  const owner = await assertOwner();
+  const supabase = createAdminClient();
+  const { data: coupon, error: couponError } = await supabase
+    .from("coupons")
+    .select("id,code,name,used_count,is_active")
+    .eq("id", couponId)
+    .maybeSingle()
+    .returns<Pick<CouponRow, "id" | "code" | "name" | "used_count" | "is_active"> | null>();
+
+  if (couponError) {
+    console.error("Failed to read coupon before delete", couponError);
+    redirectWithMessage(adminCouponsPath, "error", "تعذر التحقق من الكوبون قبل الحذف.");
+  }
+
+  if (!coupon) {
+    redirectWithMessage(adminCouponsPath, "error", "الكوبون غير موجود.");
+  }
+
+  const { count: linkedOrdersCount, error: linkedOrdersError } = await supabase
+    .from("orders")
+    .select("id", { count: "exact", head: true })
+    .eq("coupon_code", coupon.code);
+
+  if (linkedOrdersError) {
+    console.error("Failed to check coupon order links", linkedOrdersError);
+    redirectWithMessage(adminCouponsPath, "error", "تعذر التحقق من ارتباط الكوبون بالطلبات.");
+  }
+
+  if (coupon.used_count > 0 || (linkedOrdersCount ?? 0) > 0) {
+    const { error: deactivateError } = await supabase
+      .from("coupons")
+      .update({ is_active: false } as never)
+      .eq("id", coupon.id);
+
+    if (deactivateError) {
+      console.error("Failed to deactivate linked coupon", deactivateError);
+      redirectWithMessage(adminCouponsPath, "error", "الكوبون مرتبط بطلبات وتعذر إيقافه.");
+    }
+
+    await logAdminActivity({
+      admin: owner,
+      action: "coupon.disable",
+      entityType: "coupon",
+      entityId: coupon.id,
+      description: `تم إيقاف الكوبون ${coupon.code} بدلا من حذفه لأنه مرتبط بطلبات`,
+      metadata: {
+        code: coupon.code,
+        used_count: coupon.used_count,
+        linked_orders_count: linkedOrdersCount ?? 0
+      }
+    });
+
+    revalidateCouponPaths(coupon.id);
+    redirectWithMessage(
+      adminCouponsPath,
+      "success",
+      "لا يمكن حذف هذا الكوبون لأنه مرتبط بطلبات. تم إيقافه بدلا من ذلك."
+    );
+  }
+
+  const { error: deleteError } = await supabase.from("coupons").delete().eq("id", coupon.id);
+
+  if (deleteError) {
+    console.error("Failed to delete coupon", deleteError);
+    redirectWithMessage(adminCouponsPath, "error", "تعذر حذف الكوبون.");
+  }
+
+  await logAdminActivity({
+    admin: owner,
+    action: "coupon.delete",
+    entityType: "coupon",
+    entityId: coupon.id,
+    description: `تم حذف الكوبون ${coupon.code}`,
+    metadata: { code: coupon.code, name: coupon.name }
+  });
+
+  revalidateCouponPaths(coupon.id);
+  redirectWithMessage(adminCouponsPath, "success", "تم حذف الكوبون بنجاح.");
 }
 
 export async function validateCheckoutCouponAction(
@@ -324,6 +414,18 @@ async function assertAdmin() {
   if (!admin) {
     redirect("/admin?status=error&message=ليست لديك صلاحية لإدارة الكوبونات.");
   }
+
+  return admin;
+}
+
+async function assertOwner() {
+  const admin = await requireAdminRole(["owner"]);
+
+  if (!admin) {
+    redirect("/admin/coupons?status=error&message=الحذف متاح للمالك فقط.");
+  }
+
+  return admin;
 }
 
 function revalidateCouponPaths(couponId?: string) {

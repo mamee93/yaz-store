@@ -98,7 +98,7 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
     const { data, error: lookupError } = await supabase
       .from("customers")
       .select("id")
-      .or(`auth_user_id.eq.${user.id},email.eq.${email}`)
+      .or(`auth_user_id.eq.${user.id},and(email.eq.${email},auth_user_id.is.null)`)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle()

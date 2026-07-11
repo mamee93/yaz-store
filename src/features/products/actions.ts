@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
 import { getProductImageFiles, uploadProductImageFiles } from "@/features/products/image-actions";
 import { createClient } from "@/lib/supabase/server";
@@ -19,6 +20,7 @@ type ProductPathRow = {
   id: string;
   slug: string;
   category_id: string;
+  name_ar?: string;
 };
 
 const adminProductsPath = "/admin/products";
@@ -128,16 +130,20 @@ export async function updateProductAction(productId: string, formData: FormData)
 }
 
 export async function softDeleteProductAction(productId: string) {
-  await assertOwner();
+  const owner = await assertOwner();
 
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("products")
-    .select("id,slug,category_id")
+    .select("id,slug,category_id,name_ar")
     .eq("id", productId)
     .is("deleted_at", null)
     .maybeSingle()
     .returns<ProductPathRow | null>();
+
+  if (!existing) {
+    redirectWithMessage(adminProductsPath, "error", "المنتج غير موجود أو تم حذفه مسبقا.");
+  }
 
   const { error } = await supabase
     .from("products")
@@ -149,9 +155,15 @@ export async function softDeleteProductAction(productId: string) {
     redirectWithMessage(adminProductsPath, "error", "تعذر حذف المنتج.");
   }
 
-  if (existing) {
-    await revalidateProductPaths(existing.slug, existing.category_id);
-  }
+  await logAdminActivity({
+    admin: owner,
+    action: "product.disable",
+    entityType: "product",
+    entityId: existing.id,
+    description: `تم تعطيل المنتج ${existing.name_ar ?? existing.slug} بدلا من حذفه`,
+    metadata: { slug: existing.slug, category_id: existing.category_id }
+  });
+  await revalidateProductPaths(existing.slug, existing.category_id);
 
   redirectWithMessage(adminProductsPath, "success", "تم حذف المنتج بنجاح.");
 }
@@ -170,6 +182,8 @@ async function assertOwner() {
   if (!admin) {
     redirect("/admin/products?status=error&message=الحذف متاح للمالك فقط.");
   }
+
+  return admin;
 }
 
 async function revalidateProductPaths(productSlug?: string | null, categoryId?: string | null) {

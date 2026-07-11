@@ -27,6 +27,10 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
     notFound();
   }
 
+  const canUpdateOrder = admin ? canManageOrders(admin.role) : false;
+  const canAssignOrder = admin?.role === "owner" || admin?.role === "manager";
+  const canManageNotes = admin?.role === "owner" || admin?.role === "manager" || admin?.role === "cashier";
+
   return (
     <div className="space-y-6">
       <AdminPageHeader
@@ -38,7 +42,13 @@ export default async function AdminOrderPage({ params, searchParams }: AdminOrde
         status={resolvedSearchParams.status}
         message={resolvedSearchParams.message}
       />
-      <OrderDetailView order={order} canUpdateOrder={admin ? canManageOrders(admin.role) : false} />
+      <OrderDetailView
+        order={order}
+        canUpdateOrder={canUpdateOrder}
+        canAssignOrder={canAssignOrder}
+        canManageNotes={canManageNotes}
+        canPrintOrder={canManageNotes}
+      />
     </div>
   );
 }

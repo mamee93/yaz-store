@@ -380,6 +380,7 @@ async function getExistingCheckoutCustomer(authUserId: string, email: string | n
     .from("customers")
     .select("id")
     .eq("email", email)
+    .is("auth_user_id", null)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()

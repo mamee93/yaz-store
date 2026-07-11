@@ -100,6 +100,7 @@ async function getCustomerIdsForAccount({ id, email }: { id: string | null; emai
     .from("customers")
     .select("id")
     .eq("email", email)
+    .is("auth_user_id", null)
     .returns<Array<{ id: string }>>();
 
   for (const customer of data ?? []) {
@@ -123,6 +124,7 @@ export async function getAdminCustomers(search?: string) {
         .from("customers")
         .select("id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,notes,created_at,updated_at")
         .order("created_at", { ascending: false })
+        .limit(500)
         .returns<CustomerRow[]>(),
       supabase
         .from("orders")
@@ -130,6 +132,7 @@ export async function getAdminCustomers(search?: string) {
           "id,order_number,customer_id,status,payment_method,payment_status,total_omr,created_at"
         )
         .order("created_at", { ascending: false })
+        .limit(2000)
         .returns<CustomerOrderRow[]>()
     ]);
 
@@ -173,6 +176,7 @@ export async function getAdminCustomerById(customerId: string) {
       .eq("customer_id", customerId)
       .order("is_default", { ascending: false })
       .order("created_at", { ascending: false })
+      .limit(20)
       .returns<CustomerAddressRow[]>(),
     supabase
       .from("orders")
@@ -181,6 +185,7 @@ export async function getAdminCustomerById(customerId: string) {
       )
       .eq("customer_id", customerId)
       .order("created_at", { ascending: false })
+      .limit(100)
       .returns<CustomerOrderRow[]>()
   ]);
 

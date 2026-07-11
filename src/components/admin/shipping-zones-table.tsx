@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Eye, PauseCircle, PlayCircle } from "lucide-react";
+import { Eye, PauseCircle, PlayCircle, Trash2 } from "lucide-react";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { Button, Card, EmptyState, Price } from "@/components/ui";
 import {
   deactivateShippingZoneAction,
@@ -90,11 +91,17 @@ export function ShippingZonesTable({ zones }: ShippingZonesTableProps) {
                           {zone.is_active ? "إيقاف" : "تفعيل"}
                         </Button>
                       </form>
-                      <form action={deactivateAction}>
-                        <Button type="submit" size="sm" variant="danger">
-                          حذف آمن
-                        </Button>
-                      </form>
+                      <ConfirmActionButton
+                        action={deactivateAction}
+                        triggerLabel="حذف"
+                        confirmLabel="إيقاف المنطقة"
+                        title="حذف منطقة التوصيل"
+                        description="سيتم إيقاف منطقة التوصيل بدل حذفها لحماية إعدادات الطلبات والتوصيل."
+                        itemName={zone.name}
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 className="size-4" />}
+                      />
                     </div>
                   </td>
                 </tr>

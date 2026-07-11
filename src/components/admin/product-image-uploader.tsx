@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, ImageIcon, Star, Trash2, Upload } from "lucide-react";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Badge, Button, Card, EmptyState } from "@/components/ui";
 import {
@@ -119,16 +120,17 @@ export function ProductImageUploader({ productId, images }: ProductImageUploader
                         </Button>
                       </form>
                     ) : null}
-                    <form action={deleteAction}>
-                      <Button
-                        type="submit"
-                        size="sm"
-                        variant="danger"
-                        leftIcon={<Trash2 className="size-4" />}
-                      >
-                        حذف
-                      </Button>
-                    </form>
+                    <ConfirmActionButton
+                      action={deleteAction}
+                      triggerLabel="حذف"
+                      confirmLabel="حذف نهائي"
+                      title="حذف صورة المنتج"
+                      description="سيتم حذف الصورة من معرض المنتج ومن التخزين."
+                      itemName={image.alt_text_ar ?? image.storage_path}
+                      variant="danger"
+                      size="sm"
+                      icon={<Trash2 className="size-4" />}
+                    />
                   </div>
                 </div>
               </div>

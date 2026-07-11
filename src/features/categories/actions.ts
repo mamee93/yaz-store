@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -11,7 +12,9 @@ import type { Database } from "@/types/database";
 type CategoryInsert = Database["public"]["Tables"]["categories"]["Insert"];
 type CategoryUpdate = Database["public"]["Tables"]["categories"]["Update"];
 type CategorySlugRow = {
+  id?: string;
   slug: string;
+  name_ar?: string;
   image_url?: string | null;
 };
 
@@ -134,16 +137,20 @@ export async function updateCategoryAction(categoryId: string, formData: FormDat
 }
 
 export async function softDeleteCategoryAction(categoryId: string) {
-  await assertOwner();
+  const owner = await assertOwner();
 
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("categories")
-    .select("slug")
+    .select("id,slug,name_ar")
     .eq("id", categoryId)
     .is("deleted_at", null)
     .maybeSingle()
     .returns<CategorySlugRow | null>();
+
+  if (!existing) {
+    redirectWithMessage(adminCategoriesPath, "error", "التصنيف غير موجود أو تم حذفه مسبقا.");
+  }
 
   const { error } = await supabase
     .from("categories")
@@ -155,9 +162,15 @@ export async function softDeleteCategoryAction(categoryId: string) {
     redirectWithMessage(adminCategoriesPath, "error", "تعذر حذف التصنيف.");
   }
 
-  if (existing?.slug) {
-    revalidateCategoryPaths(existing.slug);
-  }
+  await logAdminActivity({
+    admin: owner,
+    action: "category.disable",
+    entityType: "category",
+    entityId: categoryId,
+    description: `تم تعطيل التصنيف ${existing.name_ar ?? existing.slug} بدلا من حذفه`,
+    metadata: { slug: existing.slug }
+  });
+  revalidateCategoryPaths(existing.slug);
 
   redirectWithMessage(adminCategoriesPath, "success", "تم حذف التصنيف بنجاح.");
 }
@@ -176,6 +189,8 @@ async function assertOwner() {
   if (!admin) {
     redirect("/admin/categories?status=error&message=الحذف متاح للمالك فقط.");
   }
+
+  return admin;
 }
 
 function getImageFile(value: FormDataEntryValue | null) {

@@ -103,6 +103,7 @@ export async function getActiveProducts() {
     .eq("is_active", true)
     .is("deleted_at", null)
     .order("sort_order", { ascending: true })
+    .limit(500)
     .returns<ProductRow[]>();
 
   if (error) {
@@ -155,6 +156,7 @@ export async function getAdminProducts() {
     .select(productSelect)
     .is("deleted_at", null)
     .order("created_at", { ascending: false })
+    .limit(500)
     .returns<ProductRow[]>();
 
   if (error) {

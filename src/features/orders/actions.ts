@@ -4,9 +4,14 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
+import {
+  getOrderStatusLabel,
+  getStatusEventType
+} from "@/features/orders/labels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { updateOrderSchema, type OrderStatusValue } from "@/validations/order-schema";
-import type { Database } from "@/types/database";
+import type { AdminProfile } from "@/features/auth/queries";
+import type { Database, Json } from "@/types/database";
 
 type OrderForUpdate = {
   id: string;
@@ -34,7 +39,7 @@ const allowedTransitions: Record<OrderStatusValue, OrderStatusValue[]> = {
   pending: ["pending", "confirmed", "cancelled"],
   confirmed: ["confirmed", "preparing", "out_for_delivery", "completed", "cancelled"],
   preparing: ["preparing", "out_for_delivery", "completed", "cancelled"],
-  out_for_delivery: ["out_for_delivery", "completed", "cancelled"],
+  out_for_delivery: ["out_for_delivery", "completed"],
   completed: ["completed"],
   cancelled: ["cancelled"]
 };
@@ -43,7 +48,7 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
   const admin = await requireAdminRole(["owner", "manager", "cashier"]);
 
   if (!admin) {
-    redirect(`/admin/orders/${orderId}?status=error&message=ليست لديك صلاحية لتحديث الطلب.`);
+    redirectWithMessage(orderId, "error", "ليست لديك صلاحية لتحديث الطلب.");
   }
 
   const parsed = updateOrderSchema.safeParse({
@@ -110,12 +115,26 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
 
     const { error } = await supabase
       .from("orders")
-      .update(updatePayload as never)
+      .update(updatePayload)
       .eq("id", orderId);
 
     if (error) {
       throw error;
     }
+
+    await logOrderEvent({
+      orderId,
+      admin,
+      eventType: getStatusEventType(nextStatus),
+      oldStatus: order.status,
+      newStatus: nextStatus,
+      title: "تغيير حالة الطلب",
+      description: `تم تغيير الحالة من ${getOrderStatusLabel(order.status)} إلى ${getOrderStatusLabel(nextStatus)}`,
+      metadata: {
+        previous_status: order.status,
+        next_status: nextStatus
+      }
+    });
 
     await logAdminActivity({
       admin,
@@ -128,12 +147,297 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
         next_status: nextStatus
       }
     });
-  } catch {
+  } catch (error) {
+    console.error("updateOrderAction failed", error);
     redirectWithMessage(orderId, "error", "تعذر تحديث الطلب. تحقق من المخزون وحاول مرة أخرى.");
   }
 
   revalidateAdminOrderPaths(orderId);
   redirectWithMessage(orderId, "success", "تم تحديث الطلب بنجاح.");
+}
+
+export async function assignOrderAction(orderId: string, formData: FormData) {
+  const admin = await requireAdminRole(["owner", "manager"]);
+
+  if (!admin) {
+    redirectWithMessage(orderId, "error", "ليست لديك صلاحية لتعيين مسؤول الطلب.");
+  }
+
+  const assigneeId = String(formData.get("assigned_admin_id") ?? "");
+  const supabase = createAdminClient();
+  const { data: order } = await supabase
+    .from("orders")
+    .select("id,assigned_admin_id")
+    .eq("id", orderId)
+    .maybeSingle()
+    .returns<{ id: string; assigned_admin_id: string | null } | null>();
+
+  if (!order) {
+    redirectWithMessage(orderId, "error", "الطلب غير موجود.");
+  }
+
+  const { data: assignee } = await supabase
+    .from("admins")
+    .select("id,full_name,display_name,email,role,is_active")
+    .eq("id", assigneeId)
+    .eq("is_active", true)
+    .maybeSingle()
+    .returns<{
+      id: string;
+      full_name: string;
+      display_name: string | null;
+      email: string;
+      role: string;
+      is_active: boolean;
+    } | null>();
+
+  if (!assignee) {
+    redirectWithMessage(orderId, "error", "لا يمكن تعيين الطلب إلى إداري غير نشط.");
+  }
+
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      assigned_admin_id: assignee.id,
+      updated_by_admin_id: admin.id
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    redirectWithMessage(orderId, "error", "تعذر تعيين مسؤول الطلب.");
+  }
+
+  await logOrderEvent({
+    orderId,
+    admin,
+    eventType: "order.assigned",
+    title: "تعيين مسؤول الطلب",
+    description: `تم تعيين الطلب إلى ${assignee.display_name || assignee.full_name}`,
+    metadata: {
+      previous_admin_id: order.assigned_admin_id,
+      assigned_admin_id: assignee.id
+    }
+  });
+
+  await logAdminActivity({
+    admin,
+    action: "order.assigned",
+    entityType: "order",
+    entityId: orderId,
+    description: "تم تعيين مسؤول للطلب",
+    metadata: { assigned_admin_id: assignee.id }
+  });
+
+  revalidateAdminOrderPaths(orderId);
+  redirectWithMessage(orderId, "success", "تم تعيين مسؤول الطلب.");
+}
+
+export async function unassignOrderAction(orderId: string) {
+  const admin = await requireAdminRole(["owner", "manager"]);
+
+  if (!admin) {
+    redirectWithMessage(orderId, "error", "ليست لديك صلاحية لإلغاء تعيين الطلب.");
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("orders")
+    .update({
+      assigned_admin_id: null,
+      updated_by_admin_id: admin.id
+    })
+    .eq("id", orderId);
+
+  if (error) {
+    redirectWithMessage(orderId, "error", "تعذر إلغاء تعيين مسؤول الطلب.");
+  }
+
+  await logOrderEvent({
+    orderId,
+    admin,
+    eventType: "order.unassigned",
+    title: "إلغاء تعيين مسؤول الطلب",
+    description: "تم إلغاء تعيين المسؤول عن الطلب"
+  });
+
+  await logAdminActivity({
+    admin,
+    action: "order.unassigned",
+    entityType: "order",
+    entityId: orderId,
+    description: "تم إلغاء تعيين مسؤول الطلب"
+  });
+
+  revalidateAdminOrderPaths(orderId);
+  redirectWithMessage(orderId, "success", "تم إلغاء تعيين مسؤول الطلب.");
+}
+
+export async function addOrderInternalNoteAction(orderId: string, formData: FormData) {
+  const admin = await requireAdminRole(["owner", "manager", "cashier"]);
+
+  if (!admin) {
+    redirectWithMessage(orderId, "error", "ليست لديك صلاحية لإضافة ملاحظة.");
+  }
+
+  const note = String(formData.get("note") ?? "").trim();
+  const isPinned = formData.get("is_pinned") === "on";
+
+  if (note.length < 1 || note.length > 2000) {
+    redirectWithMessage(orderId, "error", "الملاحظة يجب أن تكون بين 1 و2000 حرف.");
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("order_internal_notes")
+    .insert({
+      order_id: orderId,
+      admin_id: admin.id,
+      note,
+      is_pinned: isPinned
+    })
+    .select("id")
+    .single()
+    .returns<{ id: string }>();
+
+  if (error || !data) {
+    redirectWithMessage(orderId, "error", "تعذر إضافة الملاحظة.");
+  }
+
+  await logOrderEvent({
+    orderId,
+    admin,
+    eventType: "order.note_added",
+    title: "إضافة ملاحظة داخلية",
+    description: "تمت إضافة ملاحظة داخلية للطلب",
+    metadata: { note_id: data.id, is_pinned: isPinned }
+  });
+
+  await logAdminActivity({
+    admin,
+    action: "order.note_added",
+    entityType: "order",
+    entityId: orderId,
+    description: "تمت إضافة ملاحظة داخلية للطلب",
+    metadata: { note_id: data.id }
+  });
+
+  revalidateAdminOrderPaths(orderId);
+  redirectWithMessage(orderId, "success", "تمت إضافة الملاحظة.");
+}
+
+export async function updateOrderInternalNoteAction(orderId: string, noteId: string, formData: FormData) {
+  const admin = await requireAdminRole(["owner", "manager", "cashier"]);
+
+  if (!admin) {
+    redirectWithMessage(orderId, "error", "ليست لديك صلاحية لتعديل الملاحظة.");
+  }
+
+  const note = String(formData.get("note") ?? "").trim();
+  const isPinned = formData.get("is_pinned") === "on";
+
+  if (note.length < 1 || note.length > 2000) {
+    redirectWithMessage(orderId, "error", "الملاحظة يجب أن تكون بين 1 و2000 حرف.");
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("order_internal_notes")
+    .update({ note, is_pinned: isPinned })
+    .eq("id", noteId)
+    .eq("order_id", orderId);
+
+  if (error) {
+    redirectWithMessage(orderId, "error", "تعذر تحديث الملاحظة.");
+  }
+
+  await logOrderEvent({
+    orderId,
+    admin,
+    eventType: "order.note_updated",
+    title: "تعديل ملاحظة داخلية",
+    description: "تم تعديل ملاحظة داخلية للطلب",
+    metadata: { note_id: noteId, is_pinned: isPinned }
+  });
+
+  await logAdminActivity({
+    admin,
+    action: "order.note_updated",
+    entityType: "order",
+    entityId: orderId,
+    description: "تم تعديل ملاحظة داخلية للطلب",
+    metadata: { note_id: noteId }
+  });
+
+  revalidateAdminOrderPaths(orderId);
+  redirectWithMessage(orderId, "success", "تم تحديث الملاحظة.");
+}
+
+export async function deleteOrderInternalNoteAction(orderId: string, noteId: string) {
+  const admin = await requireAdminRole(["owner", "manager", "cashier"]);
+
+  if (!admin) {
+    redirectWithMessage(orderId, "error", "ليست لديك صلاحية لحذف الملاحظة.");
+  }
+
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("order_internal_notes")
+    .delete()
+    .eq("id", noteId)
+    .eq("order_id", orderId);
+
+  if (error) {
+    redirectWithMessage(orderId, "error", "تعذر حذف الملاحظة.");
+  }
+
+  await logOrderEvent({
+    orderId,
+    admin,
+    eventType: "order.note_deleted",
+    title: "حذف ملاحظة داخلية",
+    description: "تم حذف ملاحظة داخلية من الطلب",
+    metadata: { note_id: noteId }
+  });
+
+  await logAdminActivity({
+    admin,
+    action: "note.delete",
+    entityType: "order",
+    entityId: orderId,
+    description: "تم حذف ملاحظة داخلية من الطلب",
+    metadata: { note_id: noteId }
+  });
+
+  revalidateAdminOrderPaths(orderId);
+  redirectWithMessage(orderId, "success", "تم حذف الملاحظة.");
+}
+
+export async function logOrderPrintAction(orderId: string, printType: "invoice" | "shipping_label") {
+  const admin = await requireAdminRole(["owner", "manager", "cashier"]);
+
+  if (!admin) {
+    return { ok: false };
+  }
+
+  const eventType = printType === "invoice" ? "order.invoice_printed" : "order.shipping_label_printed";
+  await logOrderEvent({
+    orderId,
+    admin,
+    eventType,
+    title: printType === "invoice" ? "طباعة الفاتورة" : "طباعة بوليصة الشحن",
+    description: printType === "invoice" ? "تمت طباعة فاتورة الطلب" : "تمت طباعة بوليصة شحن الطلب"
+  });
+
+  await logAdminActivity({
+    admin,
+    action: eventType,
+    entityType: "order",
+    entityId: orderId,
+    description: printType === "invoice" ? "تمت طباعة فاتورة الطلب" : "تمت طباعة بوليصة شحن الطلب"
+  });
+
+  revalidateAdminOrderPaths(orderId);
+  return { ok: true };
 }
 
 function getOrderAuditAction(status: OrderStatusValue) {
@@ -146,6 +450,47 @@ function getOrderAuditAction(status: OrderStatusValue) {
   }
 
   return "order.status_change";
+}
+
+async function logOrderEvent({
+  orderId,
+  admin,
+  eventType,
+  oldStatus = null,
+  newStatus = null,
+  title,
+  description = null,
+  metadata = {}
+}: {
+  orderId: string;
+  admin: AdminProfile;
+  eventType: string;
+  oldStatus?: string | null;
+  newStatus?: string | null;
+  title: string;
+  description?: string | null;
+  metadata?: Json;
+}) {
+  try {
+    const supabase = createAdminClient();
+    const { error } = await supabase.from("order_events").insert({
+      order_id: orderId,
+      admin_id: admin.id,
+      auth_user_id: admin.auth_user_id,
+      event_type: eventType,
+      old_status: oldStatus,
+      new_status: newStatus,
+      title,
+      description,
+      metadata
+    });
+
+    if (error) {
+      console.error("Failed to write order event", error);
+    }
+  } catch (error) {
+    console.error("Failed to write order event", error);
+  }
 }
 
 async function getOrderForUpdate(orderId: string) {
@@ -267,7 +612,7 @@ async function updateProductStock(productId: string, stockQuantity: number) {
   const supabase = createAdminClient();
   const { error } = await supabase
     .from("products")
-    .update({ stock_quantity: stockQuantity } as never)
+    .update({ stock_quantity: stockQuantity })
     .eq("id", productId);
 
   if (error) {
@@ -281,7 +626,7 @@ async function insertInventoryMovements(movements: InventoryMovementInsert[]) {
   }
 
   const supabase = createAdminClient();
-  const { error } = await supabase.from("inventory_movements").insert(movements as never);
+  const { error } = await supabase.from("inventory_movements").insert(movements);
 
   if (error) {
     throw error;
@@ -294,6 +639,7 @@ function revalidateAdminOrderPaths(orderId: string) {
   revalidatePath("/admin");
   revalidatePath("/admin/products");
   revalidatePath("/admin/inventory");
+  revalidatePath("/admin/activity");
 }
 
 function redirectWithMessage(orderId: string, status: "success" | "error", message: string): never {

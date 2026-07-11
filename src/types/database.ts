@@ -54,6 +54,45 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["admin_audit_logs"]["Row"]>;
         Relationships: [];
       };
+      order_events: {
+        Row: {
+          id: string;
+          order_id: string;
+          admin_id: string | null;
+          auth_user_id: string | null;
+          event_type: string;
+          old_status: string | null;
+          new_status: string | null;
+          title: string;
+          description: string | null;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["order_events"]["Row"]> & {
+          order_id: string;
+          event_type: string;
+          title: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["order_events"]["Row"]>;
+        Relationships: [];
+      };
+      order_internal_notes: {
+        Row: {
+          id: string;
+          order_id: string;
+          admin_id: string | null;
+          note: string;
+          is_pinned: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["order_internal_notes"]["Row"]> & {
+          order_id: string;
+          note: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["order_internal_notes"]["Row"]>;
+        Relationships: [];
+      };
       categories: {
         Row: {
           id: string;
@@ -248,6 +287,7 @@ export type Database = {
           confirmed_by_admin_id: string | null;
           completed_by_admin_id: string | null;
           cancelled_by_admin_id: string | null;
+          assigned_admin_id: string | null;
           created_at: string;
           updated_at: string;
         };

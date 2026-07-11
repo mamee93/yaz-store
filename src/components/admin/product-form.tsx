@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Save, Trash2 } from "lucide-react";
+import { Save } from "lucide-react";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Button, Card, Input, Select, Textarea } from "@/components/ui";
 import type { CategoryAdminRead } from "@/features/categories/queries";
@@ -17,8 +17,7 @@ export function ProductForm({
   mode,
   categories,
   product,
-  action,
-  deleteAction
+  action
 }: ProductFormProps) {
   const isEdit = mode === "edit";
 
@@ -233,18 +232,6 @@ export function ProductForm({
           >
             العودة للمنتجات
           </Link>
-          {deleteAction ? (
-            <Button
-              type="submit"
-              formAction={deleteAction}
-              formNoValidate
-              variant="danger"
-              className="w-full"
-              leftIcon={<Trash2 className="size-4" />}
-            >
-              حذف المنتج
-            </Button>
-          ) : null}
         </Card>
       </aside>
     </form>

@@ -1,4 +1,5 @@
 import { Save, Trash2 } from "lucide-react";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { ImageUploadField } from "@/components/admin/image-upload-field";
 import { Badge, Button, Card, EmptyState, Input, Textarea } from "@/components/ui";
 import {
@@ -51,16 +52,6 @@ export function CategoryManagement({ categories }: CategoryManagementProps) {
                         leftIcon={<Save className="size-4" />}
                       >
                         حفظ
-                      </Button>
-                      <Button
-                        type="submit"
-                        formAction={deleteAction}
-                        formNoValidate
-                        size="sm"
-                        variant="danger"
-                        leftIcon={<Trash2 className="size-4" />}
-                      >
-                        حذف
                       </Button>
                     </div>
                   </div>
@@ -115,6 +106,19 @@ export function CategoryManagement({ categories }: CategoryManagementProps) {
                     </div>
                   </div>
                 </form>
+                <div className="mt-4 flex justify-end">
+                  <ConfirmActionButton
+                    action={deleteAction}
+                    triggerLabel="حذف"
+                    confirmLabel="تعطيل التصنيف"
+                    title="حذف التصنيف"
+                    description="سيتم إخفاء التصنيف وتعطيله بدل الحذف النهائي لحماية المنتجات المرتبطة."
+                    itemName={category.name_ar}
+                    variant="danger"
+                    size="sm"
+                    icon={<Trash2 className="size-4" />}
+                  />
+                </div>
               </Card>
             );
           })

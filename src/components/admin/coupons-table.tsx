@@ -1,8 +1,9 @@
 import Link from "next/link";
-import { Eye, PauseCircle, PlayCircle } from "lucide-react";
+import { Eye, PauseCircle, PlayCircle, Trash2 } from "lucide-react";
+import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { Button, Card, EmptyState, Price } from "@/components/ui";
 import {
-  deactivateCouponAction,
+  deleteCouponAction,
   toggleCouponStatusAction
 } from "@/features/coupons/actions";
 import type { CouponRow } from "@/features/coupons/queries";
@@ -46,7 +47,7 @@ export function CouponsTable({ coupons }: CouponsTableProps) {
           <tbody className="divide-y divide-oud-brown/10">
             {coupons.map((coupon) => {
               const toggleAction = toggleCouponStatusAction.bind(null, coupon.id, !coupon.is_active);
-              const deactivateAction = deactivateCouponAction.bind(null, coupon.id);
+              const deleteAction = deleteCouponAction.bind(null, coupon.id);
 
               return (
                 <tr key={coupon.id} className="bg-oud-pearl">
@@ -100,11 +101,17 @@ export function CouponsTable({ coupons }: CouponsTableProps) {
                           {coupon.is_active ? "إيقاف" : "تفعيل"}
                         </Button>
                       </form>
-                      <form action={deactivateAction}>
-                        <Button type="submit" size="sm" variant="danger">
-                          حذف آمن
-                        </Button>
-                      </form>
+                      <ConfirmActionButton
+                        action={deleteAction}
+                        triggerLabel="حذف"
+                        confirmLabel="حذف نهائي"
+                        title="حذف الكوبون"
+                        description="سيتم حذف الكوبون إذا لم يستخدم في أي طلب، وإيقافه فقط إذا كان مرتبطا بطلبات."
+                        itemName={coupon.code}
+                        variant="danger"
+                        size="sm"
+                        icon={<Trash2 className="size-4" />}
+                      />
                     </div>
                   </td>
                 </tr>

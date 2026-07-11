@@ -162,6 +162,15 @@ const orderStatuses: OrderStatus[] = [
   "cancelled"
 ];
 
+const analyticsLimits = {
+  orders: 5000,
+  orderItems: 10000,
+  customers: 5000,
+  products: 1000,
+  coupons: 1000,
+  admins: 500
+};
+
 export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
   const admin = await requireAdmin();
 
@@ -184,26 +193,32 @@ export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
         "id,order_number,customer_id,status,total_omr,subtotal_omr,discount_omr,coupon_code,customer_name_snapshot,customer_phone_snapshot,created_by_admin_id,updated_by_admin_id,confirmed_by_admin_id,completed_by_admin_id,cancelled_by_admin_id,created_at"
       )
       .order("created_at", { ascending: false })
+      .limit(analyticsLimits.orders)
       .returns<AnalyticsOrder[]>(),
     supabase
       .from("order_items")
       .select("id,order_id,product_id,product_name_ar_snapshot,sku_snapshot,quantity,line_total_omr")
+      .limit(analyticsLimits.orderItems)
       .returns<AnalyticsOrderItem[]>(),
     supabase
       .from("customers")
       .select("id,full_name,phone,email,created_at")
+      .limit(analyticsLimits.customers)
       .returns<AnalyticsCustomer[]>(),
     supabase
       .from("products")
       .select("id,name_ar,sku,stock_quantity,low_stock_threshold,is_active,deleted_at")
+      .limit(analyticsLimits.products)
       .returns<AnalyticsProduct[]>(),
     supabase
       .from("coupons")
       .select("id,code,name,discount_type,discount_value,used_count,is_active")
+      .limit(analyticsLimits.coupons)
       .returns<AnalyticsCoupon[]>(),
     supabase
       .from("admins")
       .select("id,full_name,display_name,role,is_active,last_sign_in_at")
+      .limit(analyticsLimits.admins)
       .returns<AnalyticsAdminLite[]>()
   ]);
 
