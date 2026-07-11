@@ -36,6 +36,16 @@ async function getAppUrl() {
   return host ? `${protocol}://${host}` : "http://localhost:3000";
 }
 
+async function getPasswordRecoveryRedirectUrl() {
+  const redirectUrl = `${await getAppUrl()}/auth/callback?next=/reset-password`;
+
+  if (process.env.NODE_ENV === "development") {
+    console.info("Password recovery redirectTo:", redirectUrl);
+  }
+
+  return redirectUrl;
+}
+
 export async function customerLoginAction(formData: FormData) {
   if (
     !process.env.NEXT_PUBLIC_SUPABASE_URL ||
@@ -177,7 +187,7 @@ export async function requestPasswordResetAction(formData: FormData) {
 
   const supabase = await createClient();
   const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${await getAppUrl()}/reset-password`
+    redirectTo: await getPasswordRecoveryRedirectUrl()
   });
 
   if (error) {

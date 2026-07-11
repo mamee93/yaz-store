@@ -8,6 +8,10 @@ import { createClient } from "@/lib/supabase/client";
 
 type ResetStatus = "checking" | "ready" | "invalid" | "success";
 
+const invalidRecoveryMessage = "رابط الاستعادة غير صالح أو انتهت صلاحيته.";
+const technicalRecoveryMessage = "تعذر التحقق من رابط الاستعادة. حاول طلب رابط جديد.";
+const passwordChangedMessage = "تم تغيير كلمة المرور بنجاح. سجّل الدخول بكلمة المرور الجديدة.";
+
 export default function ResetPasswordPage() {
   const [status, setStatus] = useState<ResetStatus>("checking");
   const [error, setError] = useState<string | null>(null);
@@ -23,55 +27,88 @@ export default function ResetPasswordPage() {
       const searchParams = new URLSearchParams(window.location.search);
       const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
       const code = searchParams.get("code");
-      const hashError = hashParams.get("error_description") || hashParams.get("error");
-      const isRecoveryLink = Boolean(
-        code || hashParams.get("access_token") || hashParams.get("refresh_token")
-      );
-
-      if (hashError) {
-        setStatus("invalid");
-        setError("رابط الاستعادة غير صالح أو انتهت صلاحيته.");
-        return;
-      }
-
-      if (!isRecoveryLink) {
-        setStatus("invalid");
-        setError("رابط الاستعادة غير صالح أو انتهت صلاحيته.");
-        return;
-      }
-
-      if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
-
-        if (exchangeError) {
-          console.error("Password recovery code exchange failed:", exchangeError.message);
-
-          if (isMounted) {
-            setStatus("invalid");
-            setError("رابط الاستعادة غير صالح أو انتهت صلاحيته.");
-          }
-
+      const accessToken = hashParams.get("access_token");
+      const refreshToken = hashParams.get("refresh_token");
+      const queryError = searchParams.get("error") || searchParams.get("error_code");
+      const hashError = hashParams.get("error") || hashParams.get("error_code");
+      const setInvalidRecovery = () => {
+        if (!isMounted) {
           return;
         }
 
-        window.history.replaceState(null, "", "/reset-password");
-      }
-
-      const {
-        data: { session }
-      } = await supabase.auth.getSession();
-
-      if (!isMounted) {
-        return;
-      }
-
-      if (!session) {
         setStatus("invalid");
-        setError("رابط الاستعادة غير صالح أو انتهت صلاحيته.");
+        setError(invalidRecoveryMessage);
+      };
+
+      if (queryError || hashError) {
+        setInvalidRecovery();
         return;
       }
 
-      setStatus("ready");
+      try {
+        if (code) {
+          const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+
+          if (exchangeError) {
+            console.error("Password recovery code exchange failed:", exchangeError.message);
+            setInvalidRecovery();
+            return;
+          }
+
+          window.history.replaceState(null, "", "/reset-password");
+        }
+
+        if (accessToken || refreshToken) {
+          if (!accessToken || !refreshToken) {
+            setInvalidRecovery();
+            return;
+          }
+
+          const { error: setSessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: refreshToken
+          });
+
+          if (setSessionError) {
+            console.error("Password recovery hash session failed:", setSessionError.message);
+            setInvalidRecovery();
+            return;
+          }
+
+          window.history.replaceState(null, "", "/reset-password");
+        }
+
+        const {
+          data: { session },
+          error: sessionError
+        } = await supabase.auth.getSession();
+
+        if (!isMounted) {
+          return;
+        }
+
+        if (sessionError) {
+          console.error("Password recovery session check failed:", sessionError.message);
+          setStatus("invalid");
+          setError(technicalRecoveryMessage);
+          return;
+        }
+
+        if (!session) {
+          setStatus("invalid");
+          setError(invalidRecoveryMessage);
+          return;
+        }
+
+        setStatus("ready");
+      } catch (recoveryError) {
+        console.error("Password recovery preparation failed:", recoveryError);
+
+        if (isMounted) {
+          setStatus("invalid");
+          setError(technicalRecoveryMessage);
+        }
+      }
     }
 
     prepareRecoverySession();
@@ -111,11 +148,7 @@ export default function ResetPasswordPage() {
 
     await supabase.auth.signOut({ scope: "local" });
     setStatus("success");
-    window.location.assign(
-      `/login?message=${encodeURIComponent(
-        "تم تغيير كلمة المرور بنجاح. سجّل الدخول بكلمة المرور الجديدة."
-      )}`
-    );
+    window.location.assign(`/login?message=${encodeURIComponent(passwordChangedMessage)}`);
   }
 
   return (
@@ -142,7 +175,7 @@ export default function ResetPasswordPage() {
         {status === "invalid" ? (
           <div className="space-y-4">
             <div className="rounded-oud border border-red-900/15 bg-red-900/10 p-3 text-sm leading-6 text-red-900">
-              {error ?? "رابط الاستعادة غير صالح أو انتهت صلاحيته."}
+              {error ?? invalidRecoveryMessage}
             </div>
             <Link
               href="/forgot-password"

@@ -233,7 +233,7 @@ export async function sendTeamMemberPasswordResetAction(memberId: string) {
 
   const supabase = createAdminClient();
   const { error } = await supabase.auth.resetPasswordForEmail(member.email, {
-    redirectTo: `${await getAppUrl()}/reset-password`
+    redirectTo: `${await getAppUrl()}/auth/callback?next=/reset-password`
   });
 
   if (error) {
