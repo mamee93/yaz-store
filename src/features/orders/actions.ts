@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
 import { ensureInvoiceForOrder } from "@/features/invoices/actions";
+import { notifyInventoryStatusTransition } from "@/features/inventory/notifications";
 import {
   getOrderStatusLabel,
   getStatusEventType
@@ -30,6 +31,7 @@ type ProductStockRow = {
   id: string;
   name_ar: string;
   stock_quantity: number;
+  low_stock_threshold: number;
   track_stock: boolean;
 };
 
@@ -542,6 +544,10 @@ async function deductOrderStock(order: OrderForUpdate, adminId: string) {
     const stockBefore = product.stock_quantity;
     const stockAfter = stockBefore - line.quantity;
     await updateProductStock(product.id, stockAfter);
+    await notifyInventoryStatusTransition({
+      before: product,
+      after: { ...product, stock_quantity: stockAfter }
+    });
     product.stock_quantity = stockAfter;
 
     movements.push({
@@ -580,6 +586,10 @@ async function restoreOrderStock(order: OrderForUpdate, adminId: string) {
     const stockBefore = product.stock_quantity;
     const stockAfter = stockBefore + line.quantity;
     await updateProductStock(product.id, stockAfter);
+    await notifyInventoryStatusTransition({
+      before: product,
+      after: { ...product, stock_quantity: stockAfter }
+    });
     product.stock_quantity = stockAfter;
 
     movements.push({
@@ -602,7 +612,7 @@ async function getProductsForOrder(productIds: string[]) {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("products")
-    .select("id,name_ar,stock_quantity,track_stock")
+    .select("id,name_ar,stock_quantity,low_stock_threshold,track_stock")
     .in("id", [...new Set(productIds)])
     .returns<ProductStockRow[]>();
 

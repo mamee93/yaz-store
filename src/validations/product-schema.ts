@@ -63,6 +63,7 @@ export const productSchema = z
         .int("حد المخزون يجب أن يكون رقماً صحيحاً")
         .min(0, "حد المخزون لا يمكن أن يكون سالباً")
     ),
+    track_stock: z.coerce.boolean().default(false),
     short_description_ar: optionalText,
     description_ar: optionalText,
     scent_family: optionalText,

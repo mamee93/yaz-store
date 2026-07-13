@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
+import { notifyInventoryStatusTransition } from "@/features/inventory/notifications";
 import {
   calculateReturnLine,
   clampRefundTotal,
@@ -21,6 +22,18 @@ type ReceiveOrderReturnResult = {
   order_id: string | null;
   stock_restored_at: string | null;
   message: string;
+};
+
+type ReturnInventoryMovementRow = {
+  product_id: string;
+  stock_before: number;
+  stock_after: number;
+  products: {
+    id: string;
+    name_ar: string;
+    low_stock_threshold: number;
+    track_stock: boolean;
+  } | null;
 };
 
 const returnTypes: OrderReturnType[] = ["full_return", "partial_return", "exchange", "refund_only"];
@@ -291,6 +304,8 @@ export async function receiveReturnAction(returnId: string) {
     description: "تم تسجيل استلام المنتجات المرتجعة."
   });
 
+  await notifyReturnStockMovements(returnId);
+
   revalidateReturnPaths(result.order_id, returnId);
   redirectAdminReturn(returnId, "success", "تم تسجيل استلام المرتجع.");
 }
@@ -498,6 +513,44 @@ function revalidateReturnPaths(orderId: string, returnId: string) {
 
 function redirectAdminReturn(returnId: string, status: "success" | "error", message: string): never {
   redirect(`/admin/returns/${returnId}?${new URLSearchParams({ status, message }).toString()}`);
+}
+
+async function notifyReturnStockMovements(returnId: string) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("inventory_movements")
+    .select("product_id,stock_before,stock_after,products(id,name_ar,low_stock_threshold,track_stock)")
+    .eq("return_id", returnId)
+    .eq("movement_type", "return_in")
+    .returns<ReturnInventoryMovementRow[]>();
+
+  if (error) {
+    console.error("Failed to read return inventory movements", error);
+    return;
+  }
+
+  for (const movement of data ?? []) {
+    if (!movement.products) {
+      continue;
+    }
+
+    await notifyInventoryStatusTransition({
+      before: {
+        id: movement.products.id,
+        name_ar: movement.products.name_ar,
+        stock_quantity: movement.stock_before,
+        low_stock_threshold: movement.products.low_stock_threshold,
+        track_stock: movement.products.track_stock
+      },
+      after: {
+        id: movement.products.id,
+        name_ar: movement.products.name_ar,
+        stock_quantity: movement.stock_after,
+        low_stock_threshold: movement.products.low_stock_threshold,
+        track_stock: movement.products.track_stock
+      }
+    });
+  }
 }
 
 async function getPreviouslyReturnedQuantities(orderId: string, orderItemIds: string[]) {

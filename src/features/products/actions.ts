@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
+import { notifyInventoryStatusTransition } from "@/features/inventory/notifications";
 import { getProductImageFiles, uploadProductImageFiles } from "@/features/products/image-actions";
 import { createClient } from "@/lib/supabase/server";
 import { productSchema } from "@/validations/product-schema";
@@ -24,6 +25,9 @@ type ProductPathRow = {
   category_id: string;
   sku?: string | null;
   name_ar?: string;
+  stock_quantity?: number;
+  low_stock_threshold?: number;
+  track_stock?: boolean;
 };
 
 type ProductSlugRow = {
@@ -61,7 +65,7 @@ export async function createProductAction(formData: FormData) {
   const { data, error } = await supabase
     .from("products")
     .insert(payload as never)
-    .select("id,slug,category_id")
+    .select("id,slug,category_id,name_ar,stock_quantity,low_stock_threshold,track_stock")
     .single()
     .returns<ProductPathRow>();
 
@@ -74,6 +78,22 @@ export async function createProductAction(formData: FormData) {
   }
 
   const createdProduct = data as ProductPathRow;
+  await notifyInventoryStatusTransition({
+    before: {
+      id: createdProduct.id,
+      name_ar: createdProduct.name_ar ?? productValues.name_ar,
+      stock_quantity: Number.MAX_SAFE_INTEGER,
+      low_stock_threshold: createdProduct.low_stock_threshold ?? productValues.low_stock_threshold,
+      track_stock: createdProduct.track_stock ?? productValues.track_stock
+    },
+    after: {
+      id: createdProduct.id,
+      name_ar: createdProduct.name_ar ?? productValues.name_ar,
+      stock_quantity: createdProduct.stock_quantity ?? productValues.stock_quantity,
+      low_stock_threshold: createdProduct.low_stock_threshold ?? productValues.low_stock_threshold,
+      track_stock: createdProduct.track_stock ?? productValues.track_stock
+    }
+  });
   const imageFiles = await getProductImageFiles(formData);
 
   if (imageFiles.length > 0) {
@@ -112,7 +132,7 @@ export async function updateProductAction(productId: string, formData: FormData)
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("products")
-    .select("id,slug,category_id,sku")
+    .select("id,slug,category_id,sku,name_ar,stock_quantity,low_stock_threshold,track_stock")
     .eq("id", productId)
     .is("deleted_at", null)
     .maybeSingle()
@@ -146,6 +166,23 @@ export async function updateProductAction(productId: string, formData: FormData)
       getProductErrorMessage(error.code)
     );
   }
+
+  await notifyInventoryStatusTransition({
+    before: {
+      id: existing.id,
+      name_ar: existing.name_ar ?? productValues.name_ar,
+      stock_quantity: existing.stock_quantity ?? 0,
+      low_stock_threshold: existing.low_stock_threshold ?? 0,
+      track_stock: existing.track_stock ?? true
+    },
+    after: {
+      id: existing.id,
+      name_ar: productValues.name_ar,
+      stock_quantity: productValues.stock_quantity,
+      low_stock_threshold: productValues.low_stock_threshold,
+      track_stock: productValues.track_stock
+    }
+  });
 
   await revalidateProductPaths(payload.slug, payload.category_id);
 

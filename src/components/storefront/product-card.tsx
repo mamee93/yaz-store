@@ -45,6 +45,9 @@ export function ProductCard({ product }: ProductCardProps) {
         <p className="line-clamp-2 text-xs leading-6 text-oud-muted">
           {product.shortDescription}
         </p>
+        <Badge variant={product.canAddToCart === false ? "danger" : "soft"}>
+          {product.stockLabel}
+        </Badge>
         <div className="flex items-center justify-between gap-2">
           <div className="flex flex-col">
             <Price value={product.price} className="text-base" />

@@ -86,6 +86,10 @@ function getNotificationHref(notification: AdminNotification) {
     return `/admin/orders/${notification.entity_id}`;
   }
 
+  if (notification.entity_type === "product" && notification.entity_id) {
+    return `/admin/products/${notification.entity_id}/edit`;
+  }
+
   return null;
 }
 

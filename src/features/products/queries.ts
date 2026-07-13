@@ -1,5 +1,9 @@
 import { createReadClient } from "@/features/supabase-read";
 import { requireAdmin } from "@/features/auth/queries";
+import {
+  getProductStockStatus,
+  getStorefrontStockLabel
+} from "@/features/inventory/stock-status";
 import { createClient } from "@/lib/supabase/server";
 import type { ProductPreview } from "@/components/storefront/product-preview-section";
 import type { StoreProduct } from "@/components/storefront/static-catalog";
@@ -194,12 +198,8 @@ export async function getAdminProductById(productId: string) {
 export function mapProductToStoreProduct(product: ProductRow): StoreProduct {
   const productImages = getSortedProductImages(product.product_images);
   const primaryImage = productImages[0];
-  const stockLabel =
-    product.track_stock && product.stock_quantity <= 0
-      ? "غير متوفر"
-      : product.track_stock && product.stock_quantity <= 5
-        ? "كمية محدودة"
-        : "متوفر";
+  const stockStatus = getProductStockStatus(product);
+  const stockLabel = getStorefrontStockLabel(product);
 
   return {
     id: product.id,
@@ -220,6 +220,7 @@ export function mapProductToStoreProduct(product: ProductRow): StoreProduct {
     sizeLabel: getProductMeasuredSizeLabel(product),
     intensity: product.intensity ?? "متوازن",
     stockLabel,
+    canAddToCart: stockStatus !== "out_of_stock",
     imageTone: primaryImage
       ? `url("${primaryImage.url}") center/cover`
       : "linear-gradient(145deg, #361f14, #b88945)",

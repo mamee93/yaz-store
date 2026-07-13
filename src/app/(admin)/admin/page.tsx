@@ -128,7 +128,9 @@ export default async function AdminDashboardPage() {
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)] xl:gap-6">
         <RecentOrdersCard orders={analytics.recentOrders} />
-        <LowStockCard products={analytics.lowStockProducts} />
+        {analytics.lowStockProducts.length > 0 ? (
+          <LowStockCard products={analytics.lowStockProducts.slice(0, 6)} />
+        ) : null}
       </div>
 
       <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] xl:gap-6">

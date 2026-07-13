@@ -21,7 +21,7 @@ export function AddToCartButton({
 }: AddToCartButtonProps) {
   const { addItem } = useCart();
   const [message, setMessage] = useState("");
-  const canAdd = Boolean(product.id);
+  const canAdd = Boolean(product.id) && product.canAddToCart !== false;
 
   function handleAddToCart() {
     if (!product.id) {

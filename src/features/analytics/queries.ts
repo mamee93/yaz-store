@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/features/auth/queries";
+import { getProductStockStatus } from "@/features/inventory/stock-status";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
@@ -47,6 +48,7 @@ export type AnalyticsProduct = {
   sku: string | null;
   stock_quantity: number;
   low_stock_threshold: number;
+  track_stock: boolean;
   is_active: boolean;
   deleted_at: string | null;
 };
@@ -207,7 +209,7 @@ export async function getDashboardAnalytics(): Promise<DashboardAnalytics> {
       .returns<AnalyticsCustomer[]>(),
     supabase
       .from("products")
-      .select("id,name_ar,sku,stock_quantity,low_stock_threshold,is_active,deleted_at")
+      .select("id,name_ar,sku,stock_quantity,low_stock_threshold,track_stock,is_active,deleted_at")
       .limit(analyticsLimits.products)
       .returns<AnalyticsProduct[]>(),
     supabase
@@ -299,7 +301,10 @@ function buildDashboardAnalytics({
     topCustomers: buildTopCustomers(revenueOrders, customers),
     lowStockProducts: products
       .filter((product) => product.deleted_at === null && product.is_active)
-      .filter((product) => product.stock_quantity <= product.low_stock_threshold)
+      .filter((product) => {
+        const status = getProductStockStatus(product);
+        return status === "low_stock" || status === "out_of_stock";
+      })
       .sort((a, b) => a.stock_quantity - b.stock_quantity)
       .slice(0, 8)
       .map((product) => ({

@@ -23,6 +23,7 @@ export type StoreProduct = {
   sizeLabel: string;
   intensity: string;
   stockLabel: string;
+  canAddToCart?: boolean;
   imageTone: string;
   imageUrl?: string;
   imageAlt?: string;

@@ -14,7 +14,7 @@ export function LowStockCard({ products }: LowStockCardProps) {
           <h2 className="font-display text-2xl font-bold text-oud-brown">تنبيهات المخزون</h2>
           <p className="mt-1 text-xs text-oud-muted">منتجات وصلت إلى حد التنبيه أو أقل</p>
         </div>
-        <Link href="/admin/inventory" className="text-xs font-semibold text-oud-brown">
+        <Link href="/admin/inventory/alerts" className="text-xs font-semibold text-oud-brown">
           المخزون
         </Link>
       </div>

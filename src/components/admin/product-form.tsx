@@ -173,8 +173,13 @@ export function ProductForm({
               step="0.001"
               defaultValue={product?.compare_at_price_omr ?? ""}
             />
+            <CheckboxField
+              name="track_stock"
+              label={"\u062a\u062a\u0628\u0639 \u0627\u0644\u0645\u062e\u0632\u0648\u0646"}
+              defaultChecked={product?.track_stock ?? true}
+            />
             <Input
-              label="الكمية"
+              label={"\u0627\u0644\u0643\u0645\u064a\u0629"}
               name="stock_quantity"
               type="number"
               min="0"
