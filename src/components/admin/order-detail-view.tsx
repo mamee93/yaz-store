@@ -2,6 +2,7 @@ import Image from "next/image";
 import { CalendarClock, Check, Pin, Save, Trash2, UserCheck, UserMinus } from "lucide-react";
 import { adminRoleLabels } from "@/constants/admin-roles";
 import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
+import { InvoiceActions } from "@/components/admin/invoice-actions";
 import { Badge, Button, Card, Price, Select, Textarea } from "@/components/ui";
 import { OrderPrintActions } from "@/components/admin/order-print-actions";
 import {
@@ -111,6 +112,20 @@ export function OrderDetailView({
                 </p>
               </div>
               <OrderPrintActions orderId={order.id} />
+            </Card>
+          ) : null}
+
+          {order.invoice_id ? (
+            <Card className="p-4 shadow-none sm:p-5">
+              <div className="mb-4">
+                <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">
+                  الفاتورة
+                </h2>
+                <p className="mt-1 text-sm text-oud-muted" dir="ltr">
+                  {order.invoice_number}
+                </p>
+              </div>
+              <InvoiceActions invoiceId={order.invoice_id} />
             </Card>
           ) : null}
 

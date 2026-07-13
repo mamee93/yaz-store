@@ -9,6 +9,8 @@ export type CustomerAddressRow = Database["public"]["Tables"]["addresses"]["Row"
 export type CustomerOrderRow = {
   id: string;
   order_number: string;
+  invoice_number?: string | null;
+  invoice_id?: string | null;
   customer_id: string;
   status: Database["public"]["Enums"]["order_status"];
   payment_method: Database["public"]["Enums"]["payment_method"];
@@ -64,7 +66,7 @@ export async function getCustomerAccount() {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("id,order_number,customer_id,status,payment_method,payment_status,total_omr,created_at")
+    .select("id,order_number,invoice_number,customer_id,status,payment_method,payment_status,total_omr,created_at")
     .in("customer_id", customerIds)
     .order("created_at", { ascending: false })
     .limit(8)
@@ -80,11 +82,11 @@ export async function getCustomerAccount() {
 
   return {
     profile,
-    orders: data ?? []
+    orders: await attachInvoiceIds(data ?? [])
   };
 }
 
-async function getCustomerIdsForAccount({ id, email }: { id: string | null; email: string | null }) {
+export async function getCustomerIdsForAccount({ id, email }: { id: string | null; email: string | null }) {
   const ids = new Set<string>();
 
   if (id) {
@@ -108,6 +110,34 @@ async function getCustomerIdsForAccount({ id, email }: { id: string | null; emai
   }
 
   return [...ids];
+}
+
+async function attachInvoiceIds(orders: CustomerOrderRow[]) {
+  if (orders.length === 0) {
+    return orders;
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("invoices")
+    .select("id,order_id")
+    .in(
+      "order_id",
+      orders.map((order) => order.id)
+    )
+    .returns<Array<{ id: string; order_id: string }>>();
+
+  if (error) {
+    console.error("Failed to read customer account invoice ids", error);
+    return orders;
+  }
+
+  const invoiceIdByOrderId = new Map((data ?? []).map((invoice) => [invoice.order_id, invoice.id]));
+
+  return orders.map((order) => ({
+    ...order,
+    invoice_id: invoiceIdByOrderId.get(order.id) ?? null
+  }));
 }
 
 export async function getAdminCustomers(search?: string) {

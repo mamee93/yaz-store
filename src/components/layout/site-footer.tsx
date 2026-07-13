@@ -14,6 +14,7 @@ const categoryLinks = [
 ];
 
 const supportLinks = [
+  { href: "/track-order", label: "تتبع الطلب" },
   { href: "/delivery-returns", label: "التوصيل والاسترجاع" },
   { href: "/privacy-policy", label: "سياسة الخصوصية" },
   { href: "/terms", label: "الشروط والأحكام" },

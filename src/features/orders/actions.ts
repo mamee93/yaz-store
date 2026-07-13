@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
+import { ensureInvoiceForOrder } from "@/features/invoices/actions";
 import {
   getOrderStatusLabel,
   getStatusEventType
@@ -147,6 +148,10 @@ export async function updateOrderAction(orderId: string, formData: FormData) {
         next_status: nextStatus
       }
     });
+
+    if (nextStatus === "confirmed") {
+      await ensureInvoiceForOrder(orderId, admin);
+    }
   } catch (error) {
     console.error("updateOrderAction failed", error);
     redirectWithMessage(orderId, "error", "تعذر تحديث الطلب. تحقق من المخزون وحاول مرة أخرى.");

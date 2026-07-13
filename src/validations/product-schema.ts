@@ -11,6 +11,16 @@ const optionalText = z.preprocess((value) => {
 
 const requiredText = (message: string) => z.string().trim().min(1, message);
 
+const optionalSlug = optionalText.pipe(
+  z
+    .string()
+    .regex(
+      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+      "\u0627\u0644\u0631\u0627\u0628\u0637 \u0627\u0644\u0645\u062E\u062A\u0635\u0631 \u064A\u062C\u0628 \u0623\u0646 \u064A\u062D\u062A\u0648\u064A \u0639\u0644\u0649 \u0623\u062D\u0631\u0641 \u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629 \u0635\u063A\u064A\u0631\u0629 \u0648\u0623\u0631\u0642\u0627\u0645 \u0648\u0634\u0631\u0637\u0627\u062A \u0641\u0642\u0637"
+    )
+    .nullable()
+);
+
 const requiredNumber = (message: string) =>
   z.preprocess(
     (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -28,10 +38,7 @@ const optionalPositiveNumber = z.preprocess((value) => {
 export const productSchema = z
   .object({
     name_ar: requiredText("اسم المنتج مطلوب"),
-    slug: requiredText("الرابط المختصر مطلوب").regex(
-      /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
-      "الرابط المختصر يجب أن يحتوي على أحرف إنجليزية صغيرة وأرقام وشرطات فقط"
-    ),
+    slug: optionalSlug,
     category_id: requiredText("التصنيف مطلوب").uuid("التصنيف غير صحيح"),
     price_omr: requiredNumber("السعر مطلوب").pipe(
       z.number().min(0, "السعر لا يمكن أن يكون سالباً")

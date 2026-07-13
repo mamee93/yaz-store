@@ -26,7 +26,13 @@ const orderEventLabels: Record<string, string> = {
   "order.note_updated": "تعديل ملاحظة داخلية",
   "order.note_deleted": "حذف ملاحظة داخلية",
   "order.invoice_printed": "طباعة الفاتورة",
-  "order.shipping_label_printed": "طباعة بوليصة الشحن"
+  "order.shipping_label_printed": "طباعة بوليصة الشحن",
+  "order.return_requested": "طلب إرجاع",
+  "order.return_approved": "اعتماد المرتجع",
+  "order.return_rejected": "رفض المرتجع",
+  "order.return_received": "استلام المرتجع",
+  "order.refunded": "تسجيل استرداد",
+  "order.return_closed": "إغلاق المرتجع"
 };
 
 export function getOrderEventLabel(eventType: string) {

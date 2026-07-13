@@ -38,7 +38,8 @@ export function ProductForm({
               name="slug"
               defaultValue={product?.slug ?? ""}
               dir="ltr"
-              required
+              placeholder="oud-yaz"
+              hint={"\u0627\u062A\u0631\u0643\u0647 \u0641\u0627\u0631\u063A\u064B\u0627 \u0644\u064A\u062A\u0645 \u062A\u0648\u0644\u064A\u062F\u0647 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627 \u0645\u0646 \u0627\u0633\u0645 \u0627\u0644\u0645\u0646\u062A\u062C."}
             />
             <Select
               label="التصنيف"
@@ -55,7 +56,18 @@ export function ProductForm({
                 </option>
               ))}
             </Select>
-            <Input label="SKU" name="sku" defaultValue={product?.sku ?? ""} dir="ltr" />
+            <Input
+              label="SKU"
+              name="sku"
+              defaultValue={product?.sku ?? ""}
+              dir="ltr"
+              disabled={isEdit}
+              hint={
+                isEdit
+                  ? "\u0644\u0627 \u064A\u062A\u063A\u064A\u0631 SKU \u0639\u0646\u062F \u062A\u0639\u062F\u064A\u0644 \u0627\u0644\u0645\u0646\u062A\u062C."
+                  : "\u0627\u062A\u0631\u0643\u0647 \u0641\u0627\u0631\u063A\u064B\u0627 \u0644\u064A\u062A\u0645 \u062A\u0648\u0644\u064A\u062F\u0647 \u062A\u0644\u0642\u0627\u0626\u064A\u064B\u0627."
+              }
+            />
             <Textarea
               label="الوصف المختصر"
               name="short_description_ar"
@@ -134,7 +146,7 @@ export function ProductForm({
               label="كلمات البحث"
               name="search_keywords_ar"
               defaultValue={product?.search_keywords_ar ?? ""}
-              hint="افصل الكلمات بفواصل عربية أو إنجليزية."
+              hint={"\u0627\u0641\u0635\u0644 \u0627\u0644\u0643\u0644\u0645\u0627\u062A \u0628\u0641\u0648\u0627\u0635\u0644 \u0639\u0631\u0628\u064A\u0629 \u0623\u0648 \u0625\u0646\u062C\u0644\u064A\u0632\u064A\u0629."}
             />
           </div>
         </Card>

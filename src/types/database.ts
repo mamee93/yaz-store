@@ -258,6 +258,7 @@ export type Database = {
         Row: {
           id: string;
           order_number: string;
+          invoice_number: string | null;
           customer_id: string;
           address_id: string;
           status: Database["public"]["Enums"]["order_status"];
@@ -353,6 +354,79 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["payments"]["Row"]>;
         Relationships: [];
       };
+      invoices: {
+        Row: {
+          id: string;
+          order_id: string;
+          invoice_number: string;
+          issued_at: string;
+          created_by_admin_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["invoices"]["Row"]> & {
+          order_id: string;
+          invoice_number: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["invoices"]["Row"]>;
+        Relationships: [];
+      };
+      order_returns: {
+        Row: {
+          id: string;
+          order_id: string;
+          customer_id: string | null;
+          status: "requested" | "approved" | "rejected" | "received" | "refunded" | "closed";
+          return_type: "full_return" | "partial_return" | "exchange" | "refund_only";
+          reason: string;
+          customer_note: string | null;
+          admin_note: string | null;
+          requested_at: string;
+          approved_at: string | null;
+          rejected_at: string | null;
+          received_at: string | null;
+          refunded_at: string | null;
+          stock_restored_at: string | null;
+          approved_by_admin_id: string | null;
+          rejected_by_admin_id: string | null;
+          received_by_admin_id: string | null;
+          refunded_by_admin_id: string | null;
+          refund_method: "cash" | "bank_transfer" | "original_payment_method" | "store_credit" | "manual" | null;
+          refund_amount_omr: number | null;
+          refund_reference: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["order_returns"]["Row"]> & {
+          order_id: string;
+          status: Database["public"]["Tables"]["order_returns"]["Row"]["status"];
+          return_type: Database["public"]["Tables"]["order_returns"]["Row"]["return_type"];
+          reason: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["order_returns"]["Row"]>;
+        Relationships: [];
+      };
+      order_return_items: {
+        Row: {
+          id: string;
+          return_id: string;
+          order_item_id: string;
+          quantity: number;
+          unit_refund_omr: number;
+          line_refund_omr: number;
+          return_to_stock: boolean;
+          created_at: string;
+        };
+        Insert: Partial<Database["public"]["Tables"]["order_return_items"]["Row"]> & {
+          return_id: string;
+          order_item_id: string;
+          quantity: number;
+          unit_refund_omr: number;
+          line_refund_omr: number;
+        };
+        Update: Partial<Database["public"]["Tables"]["order_return_items"]["Row"]>;
+        Relationships: [];
+      };
       coupons: {
         Row: {
           id: string;
@@ -426,6 +500,7 @@ export type Database = {
           id: string;
           product_id: string;
           order_id: string | null;
+          return_id: string | null;
           admin_id: string | null;
           movement_type: string;
           quantity_change: number;
@@ -532,7 +607,30 @@ export type Database = {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      generate_invoice_number: {
+        Args: Record<string, never>;
+        Returns: string;
+      };
+      
+generate_product_sku: {
+  Args: Record<PropertyKey, never>;
+  Returns: string;
+};
+
+      receive_order_return: {
+        Args: {
+          p_return_id: string;
+          p_admin_id: string;
+        };
+        Returns: Array<{
+          result_code: "received" | "already_processed" | "invalid_status" | "not_found";
+          order_id: string | null;
+          stock_restored_at: string | null;
+          message: string;
+        }>;
+      };
+    };
     Enums: {
       order_status:
         | "pending"

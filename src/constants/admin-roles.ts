@@ -57,6 +57,10 @@ export function canAccessAdminPath(role: AdminRole, pathname: string) {
     return ["owner", "manager", "cashier", "staff"].includes(role);
   }
 
+  if (pathname.startsWith("/admin/returns")) {
+    return ["owner", "manager", "cashier", "staff"].includes(role);
+  }
+
   if (pathname.startsWith("/admin/customers")) {
     return role === "owner" || role === "manager" || role === "cashier";
   }

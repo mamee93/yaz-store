@@ -29,6 +29,7 @@ const adminOrdersPageSize = 100;
 export type AdminOrderListItem = {
   id: string;
   order_number: string;
+  invoice_number: string | null;
   status: OrderStatus;
   payment_method: PaymentMethod;
   payment_status: PaymentStatus;
@@ -57,6 +58,7 @@ export type AdminOrderDetail = AdminOrderListItem & {
   confirmed_at: string | null;
   completed_at: string | null;
   cancelled_at: string | null;
+  invoice_id: string | null;
   assigned_admin: OrderAdminLite | null;
   order_items: AdminOrderItem[];
   payments: AdminPaymentItem[];
@@ -148,7 +150,7 @@ export async function getAdminOrders(filters: AdminOrderFilters = {}) {
   let query = supabase
     .from("orders")
     .select(
-      "id,order_number,customer_id,address_id,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,tax_omr,total_omr,coupon_code,shipping_zone_id,shipping_area,shipping_fee_omr,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,admin_notes,stock_deducted_at,confirmed_at,completed_at,cancelled_at,created_by_admin_id,updated_by_admin_id,confirmed_by_admin_id,completed_by_admin_id,cancelled_by_admin_id,assigned_admin_id,created_at,updated_at"
+      "id,order_number,invoice_number,customer_id,address_id,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,tax_omr,total_omr,coupon_code,shipping_zone_id,shipping_area,shipping_fee_omr,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,admin_notes,stock_deducted_at,confirmed_at,completed_at,cancelled_at,created_by_admin_id,updated_by_admin_id,confirmed_by_admin_id,completed_by_admin_id,cancelled_by_admin_id,assigned_admin_id,created_at,updated_at"
     )
     .order("created_at", { ascending: false })
     .limit(adminOrdersPageSize);
@@ -203,6 +205,7 @@ export async function getAdminOrders(filters: AdminOrderFilters = {}) {
     return {
       id: order.id,
       order_number: order.order_number,
+      invoice_number: order.invoice_number,
       status: order.status,
       payment_method: order.payment_method,
       payment_status: order.payment_status,
@@ -230,12 +233,13 @@ export async function getAdminOrderById(orderId: string) {
     { data: order, error: orderError },
     { data: events, error: eventsError },
     { data: notes, error: notesError },
+    { data: invoice, error: invoiceError },
     { data: assignableAdmins, error: adminsError }
   ] = await Promise.all([
     supabase
       .from("orders")
       .select(
-        "id,order_number,customer_id,address_id,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,tax_omr,total_omr,coupon_code,shipping_zone_id,shipping_area,shipping_fee_omr,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,admin_notes,stock_deducted_at,confirmed_at,completed_at,cancelled_at,created_by_admin_id,updated_by_admin_id,confirmed_by_admin_id,completed_by_admin_id,cancelled_by_admin_id,assigned_admin_id,created_at,updated_at,order_items(id,product_id,product_name_ar_snapshot,product_name_en_snapshot,sku_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot),payments(id,method,status,amount_omr,provider,created_at)"
+        "id,order_number,invoice_number,customer_id,address_id,status,payment_method,payment_status,subtotal_omr,delivery_fee_omr,discount_omr,tax_omr,total_omr,coupon_code,shipping_zone_id,shipping_area,shipping_fee_omr,delivery_method,customer_name_snapshot,customer_phone_snapshot,delivery_address_snapshot,customer_notes,admin_notes,stock_deducted_at,confirmed_at,completed_at,cancelled_at,created_by_admin_id,updated_by_admin_id,confirmed_by_admin_id,completed_by_admin_id,cancelled_by_admin_id,assigned_admin_id,created_at,updated_at,order_items(id,product_id,product_name_ar_snapshot,product_name_en_snapshot,sku_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot),payments(id,method,status,amount_omr,provider,created_at)"
       )
       .eq("id", orderId)
       .maybeSingle()
@@ -256,6 +260,12 @@ export async function getAdminOrderById(orderId: string) {
       .limit(20)
       .returns<Array<Database["public"]["Tables"]["order_internal_notes"]["Row"]>>(),
     supabase
+      .from("invoices")
+      .select("id")
+      .eq("order_id", orderId)
+      .maybeSingle()
+      .returns<{ id: string } | null>(),
+    supabase
       .from("admins")
       .select("id,full_name,display_name,email,role,is_active,last_sign_in_at")
       .eq("is_active", true)
@@ -268,8 +278,8 @@ export async function getAdminOrderById(orderId: string) {
     return null;
   }
 
-  if (eventsError || notesError || adminsError) {
-    console.error("Failed to read advanced order data", eventsError ?? notesError ?? adminsError);
+  if (eventsError || notesError || invoiceError || adminsError) {
+    console.error("Failed to read advanced order data", eventsError ?? notesError ?? invoiceError ?? adminsError);
   }
 
   const adminIds = [
@@ -286,6 +296,7 @@ export async function getAdminOrderById(orderId: string) {
     ...order,
     assigned_admin_name: assignedAdmin ? assignedAdmin.display_name || assignedAdmin.full_name : null,
     assigned_admin_role: assignedAdmin?.role ?? null,
+    invoice_id: invoice?.id ?? null,
     assigned_admin: assignedAdmin,
     events:
       events && events.length > 0

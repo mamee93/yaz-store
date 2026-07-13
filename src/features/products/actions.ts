@@ -8,9 +8,11 @@ import { getProductImageFiles, uploadProductImageFiles } from "@/features/produc
 import { createClient } from "@/lib/supabase/server";
 import { productSchema } from "@/validations/product-schema";
 import type { Database } from "@/types/database";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 type ProductInsert = Database["public"]["Tables"]["products"]["Insert"];
 type ProductUpdate = Database["public"]["Tables"]["products"]["Update"];
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 type CategorySlugRow = {
   slug: string;
@@ -20,8 +22,16 @@ type ProductPathRow = {
   id: string;
   slug: string;
   category_id: string;
+  sku?: string | null;
   name_ar?: string;
 };
+
+type ProductSlugRow = {
+  id: string;
+  slug: string;
+};
+
+
 
 const adminProductsPath = "/admin/products";
 
@@ -39,7 +49,14 @@ export async function createProductAction(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const payload = parsed.data as ProductInsert;
+  const productValues = parsed.data;
+  const requestedSlug = productValues.slug ?? slugifyProductName(productValues.name_ar);
+  const sku = productValues.sku ?? (await generateNextSku());
+  const payload: ProductInsert = {
+    ...productValues,
+    slug: await generateUniqueProductSlug(supabase, requestedSlug),
+    sku
+  };
 
   const { data, error } = await supabase
     .from("products")
@@ -95,13 +112,27 @@ export async function updateProductAction(productId: string, formData: FormData)
   const supabase = await createClient();
   const { data: existing } = await supabase
     .from("products")
-    .select("id,slug,category_id")
+    .select("id,slug,category_id,sku")
     .eq("id", productId)
     .is("deleted_at", null)
     .maybeSingle()
     .returns<ProductPathRow | null>();
 
-  const payload = parsed.data as ProductUpdate;
+  if (!existing) {
+    redirectWithMessage(`/admin/products/${productId}/edit`, "error", "\u0627\u0644\u0645\u0646\u062A\u062C \u063A\u064A\u0631 \u0645\u0648\u062C\u0648\u062F \u0623\u0648 \u062A\u0645 \u062D\u0630\u0641\u0647 \u0645\u0633\u0628\u0642\u0627.");
+  }
+
+  const productValues = parsed.data;
+  const requestedSlug = productValues.slug ?? existing.slug;
+  const payload: ProductUpdate = {
+    ...productValues,
+    slug:
+      requestedSlug === existing.slug
+        ? existing.slug
+        : await generateUniqueProductSlug(supabase, requestedSlug, productId),
+    sku: existing.sku
+  };
+
   const { error } = await supabase
     .from("products")
     .update(payload as never)
@@ -214,6 +245,116 @@ async function getCategorySlug(categoryId: string) {
     .returns<CategorySlugRow | null>();
 
   return data?.slug ?? null;
+}
+
+async function generateUniqueProductSlug(
+  supabase: SupabaseServerClient,
+  requestedSlug: string,
+  excludeProductId?: string
+) {
+  const baseSlug = normalizeSlug(requestedSlug);
+  let candidate = baseSlug;
+  let suffix = 2;
+
+  while (await productSlugExists(supabase, candidate, excludeProductId)) {
+    candidate = `${baseSlug}-${suffix}`;
+    suffix += 1;
+  }
+
+  return candidate;
+}
+
+async function productSlugExists(
+  supabase: SupabaseServerClient,
+  slug: string,
+  excludeProductId?: string
+) {
+  let query = supabase
+    .from("products")
+    .select("id,slug")
+    .eq("slug", slug)
+    .limit(1);
+
+  if (excludeProductId) {
+    query = query.neq("id", excludeProductId);
+  }
+
+  const { data, error } = await query.returns<ProductSlugRow[]>();
+
+  if (error) {
+    throw new Error("Failed to check product slug availability");
+  }
+
+  return (data?.length ?? 0) > 0;
+}
+
+async function generateNextSku() {
+  const adminClient = createAdminClient();
+
+  const { data, error } = await adminClient.rpc("generate_product_sku");
+
+  if (error || typeof data !== "string") {
+    console.error("Failed to generate product SKU", error);
+    throw new Error("Failed to generate product SKU");
+  }
+
+  return data;
+}
+ 
+
+function normalizeSlug(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .replace(/-{2,}/g, "-") || "product";
+}
+
+function slugifyProductName(value: string) {
+  const arabicSlugMap: Record<string, string> = {
+    "\u0621": "",
+    "\u0622": "a",
+    "\u0623": "a",
+    "\u0624": "w",
+    "\u0625": "i",
+    "\u0626": "y",
+    "\u0627": "a",
+    "\u0628": "b",
+    "\u0629": "h",
+    "\u062A": "t",
+    "\u062B": "th",
+    "\u062C": "j",
+    "\u062D": "h",
+    "\u062E": "kh",
+    "\u062F": "d",
+    "\u0630": "dh",
+    "\u0631": "r",
+    "\u0632": "z",
+    "\u0633": "s",
+    "\u0634": "sh",
+    "\u0635": "s",
+    "\u0636": "d",
+    "\u0637": "t",
+    "\u0638": "z",
+    "\u0639": "a",
+    "\u063A": "gh",
+    "\u0641": "f",
+    "\u0642": "q",
+    "\u0643": "k",
+    "\u0644": "l",
+    "\u0645": "m",
+    "\u0646": "n",
+    "\u0647": "h",
+    "\u0648": "w",
+    "\u0649": "a",
+    "\u064A": "y"
+  };
+  const transliterated = Array.from(value.normalize("NFKD"))
+    .map((character) => arabicSlugMap[character] ?? character)
+    .join("")
+    .replace(/[\u064B-\u065F\u0670]/g, "");
+
+  return normalizeSlug(transliterated);
 }
 
 function redirectWithMessage(path: string, status: "success" | "error", message: string): never {

@@ -1,10 +1,15 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
-import { CalendarDays, PackageCheck, UserRound } from "lucide-react";
+import type { ReactNode } from "react";
+import { CalendarDays, PackageCheck, ReceiptText, Search, UserRound } from "lucide-react";
 import { CustomerLogoutButton } from "@/components/auth/customer-logout-button";
 import { CustomerDeliveryFields } from "@/components/customer/customer-delivery-fields";
 import { Badge, Button, Card, Container, EmptyState, Heading, Price, Section } from "@/components/ui";
 import { updateCustomerDeliveryProfileAction } from "@/features/customers/actions";
 import { getCustomerAccount } from "@/features/customers/queries";
+import { getTrackingStatusLabel } from "@/features/order-tracking/status";
+import { getReturnStatusVariant, returnStatusLabels, returnTypeLabels } from "@/features/returns/labels";
+import { getCustomerReturns } from "@/features/returns/queries";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +36,8 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
   if (!account) {
     redirect("/login?message=يرجى تسجيل الدخول للوصول إلى حسابك.");
   }
+
+  const returns = await getCustomerReturns();
 
   return (
     <main>
@@ -110,7 +117,7 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                         key={order.id}
                         className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
                       >
-                        <div>
+                        <div className="min-w-0">
                           <p className="font-semibold text-oud-brown" dir="ltr">
                             {order.order_number}
                           </p>
@@ -118,11 +125,39 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                             {formatDate(order.created_at)}
                           </p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3">
-                          <Badge variant={order.status === "cancelled" ? "danger" : "gold"}>
-                            {orderStatusLabels[order.status] ?? order.status}
-                          </Badge>
-                          <Price value={order.total_omr} />
+                        <div className="flex flex-col gap-3 sm:items-end">
+                          <div className="flex flex-wrap items-center gap-3">
+                            <Badge variant={order.status === "cancelled" ? "danger" : "gold"}>
+                              {getTrackingStatusLabel(order.status) ??
+                                orderStatusLabels[order.status] ??
+                                order.status}
+                            </Badge>
+                            <Price value={order.total_omr} />
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <AccountOrderLink href={`/account/orders/${order.id}`}>
+                              <Search className="size-4" aria-hidden="true" />
+                              عرض التفاصيل
+                            </AccountOrderLink>
+                            <AccountOrderLink href={`/account/orders/${order.id}`}>
+                              <PackageCheck className="size-4" aria-hidden="true" />
+                              تتبع الطلب
+                            </AccountOrderLink>
+                            {order.invoice_number ? (
+                              <span
+                                className="inline-flex h-9 items-center rounded-oud bg-oud-beige/35 px-3 text-xs font-semibold text-oud-brown"
+                                dir="ltr"
+                              >
+                                {order.invoice_number}
+                              </span>
+                            ) : null}
+                            {order.invoice_id ? (
+                              <AccountOrderLink href={`/account/orders/${order.id}/invoice.pdf`}>
+                                <ReceiptText className="size-4" aria-hidden="true" />
+                                تحميل الفاتورة
+                              </AccountOrderLink>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -132,6 +167,52 @@ export default async function AccountPage({ searchParams }: AccountPageProps) {
                     <EmptyState
                       title="لا توجد طلبات بعد"
                       description="ستظهر طلباتك هنا بعد إتمام أول طلب من المتجر."
+                      icon={<PackageCheck className="size-5" aria-hidden="true" />}
+                    />
+                  </div>
+                )}
+              </Card>
+
+              <Card className="overflow-hidden shadow-none">
+                <div className="border-b border-oud-brown/10 p-5">
+                  <h2 className="font-display text-2xl font-bold text-oud-brown">
+                    طلبات الإرجاع
+                  </h2>
+                </div>
+
+                {returns.length > 0 ? (
+                  <div className="divide-y divide-oud-brown/10">
+                    {returns.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-oud-brown" dir="ltr">
+                            {item.order_number}
+                          </p>
+                          <p className="mt-1 text-xs text-oud-muted">
+                            {formatDate(item.requested_at)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={getReturnStatusVariant(item.status)}>
+                            {returnStatusLabels[item.status]}
+                          </Badge>
+                          <Badge variant="soft">{returnTypeLabels[item.return_type]}</Badge>
+                          <Price value={item.expected_refund_omr} />
+                          <AccountOrderLink href={`/account/returns/${item.id}`}>
+                            عرض التفاصيل
+                          </AccountOrderLink>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-5">
+                    <EmptyState
+                      title="لا توجد طلبات إرجاع"
+                      description="ستظهر طلبات الإرجاع والاستبدال هنا بعد إرسالها."
                       icon={<PackageCheck className="size-5" aria-hidden="true" />}
                     />
                   </div>
@@ -160,6 +241,17 @@ function AccountStatusMessage({ status, message }: { status?: string; message?: 
     >
       {message}
     </div>
+  );
+}
+
+function AccountOrderLink({ href, children }: { href: string; children: ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex h-9 items-center justify-center gap-2 rounded-oud border border-oud-brown/15 bg-oud-pearl px-3 text-xs font-semibold text-oud-brown transition hover:bg-oud-beige/45"
+    >
+      {children}
+    </Link>
   );
 }
 
