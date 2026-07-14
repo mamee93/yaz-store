@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
 import { requireAdminRole } from "@/features/auth/queries";
 import { notifyInventoryStatusTransition } from "@/features/inventory/notifications";
+import { createReturnRequestedNotification } from "@/features/notifications/actions";
 import {
   calculateReturnLine,
   clampRefundTotal,
@@ -49,7 +50,7 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
   const data = await getCustomerReturnOrder(orderId);
 
   if (!data) {
-    redirect("/account?status=error&message=ØªØ¹Ø°Ø± Ø§Ù„Ø¹Ø«ÙˆØ± Ø¹Ù„Ù‰ Ø§Ù„Ø·Ù„Ø¨.");
+    redirect("/account?status=error&message=تعذر العثور على الطلب.");
   }
 
   const eligibility = getReturnEligibility(data.order, Boolean(data.openReturn));
@@ -63,7 +64,7 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
   const customerNote = String(formData.get("customer_note") ?? "").trim();
 
   if (!returnTypes.includes(returnType) || !reason) {
-    redirect(`/account/orders/${orderId}/return?status=error&message=ÙŠØ±Ø¬Ù‰ Ø§Ø®ØªÙŠØ§Ø± Ù†ÙˆØ¹ Ø§Ù„Ø·Ù„Ø¨ ÙˆØ³Ø¨Ø¨ Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹.`);
+    redirect(`/account/orders/${orderId}/return?status=error&message=يرجى اختيار نوع الطلب وسبب الإرجاع.`);
   }
 
   const previousQuantities = await getPreviouslyReturnedQuantities(
@@ -82,7 +83,7 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
       const remainingQuantity = item.quantity - (previousQuantities.get(item.id) ?? 0);
 
       if (quantity > remainingQuantity) {
-        redirect(`/account/orders/${orderId}/return?status=error&message=Ù„Ø§ ÙŠÙ…ÙƒÙ† Ø§Ø®ØªÙŠØ§Ø± ÙƒÙ…ÙŠØ© Ø£ÙƒØ¨Ø± Ù…Ù† Ø§Ù„ÙƒÙ…ÙŠØ© Ø§Ù„Ù…Ø´ØªØ±Ø§Ø©.`);
+        redirect(`/account/orders/${orderId}/return?status=error&message=لا يمكن اختيار كمية أكبر من الكمية المشتراة.`);
       }
 
       const calculated = calculateReturnLine(data.order, item, quantity);
@@ -98,7 +99,7 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
     .filter(Boolean) as Array<Database["public"]["Tables"]["order_return_items"]["Insert"]>;
 
   if (items.length === 0) {
-    redirect(`/account/orders/${orderId}/return?status=error&message=ÙŠØ±Ø¬Ù‰ Ø§Ø®ØªÙŠØ§Ø± Ù…Ù†ØªØ¬ ÙˆØ§Ø­Ø¯ Ø¹Ù„Ù‰ Ø§Ù„Ø£Ù‚Ù„.`);
+    redirect(`/account/orders/${orderId}/return?status=error&message=يرجى اختيار منتج واحد على الأقل.`);
   }
 
   const total = clampRefundTotal(
@@ -107,7 +108,7 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
   );
 
   if (total <= 0) {
-    redirect(`/account/orders/${orderId}/return?status=error&message=ØªØ¹Ø°Ø± Ø­Ø³Ø§Ø¨ Ù…Ø¨Ù„Øº Ù‚Ø§Ø¨Ù„ Ù„Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯.`);
+    redirect(`/account/orders/${orderId}/return?status=error&message=تعذر حساب مبلغ قابل للاسترداد.`);
   }
 
   const supabase = createAdminClient();
@@ -127,7 +128,7 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
 
   if (returnError || !createdReturn) {
     console.error("Failed to create order return", returnError);
-    redirect(`/account/orders/${orderId}/return?status=error&message=ØªØ¹Ø°Ø± Ø¥Ø±Ø³Ø§Ù„ Ø·Ù„Ø¨ Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹.`);
+    redirect(`/account/orders/${orderId}/return?status=error&message=تعذر إرسال طلب الإرجاع.`);
   }
 
   const { error: itemsError } = await supabase.from("order_return_items").insert(
@@ -139,14 +140,14 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
 
   if (itemsError) {
     console.error("Failed to create order return items", itemsError);
-    redirect(`/account/orders/${orderId}/return?status=error&message=ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø¹Ù†Ø§ØµØ± Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹.`);
+    redirect(`/account/orders/${orderId}/return?status=error&message=تعذر حفظ عناصر الإرجاع.`);
   }
 
   await logReturnOrderEvent({
     orderId,
     eventType: "order.return_requested",
-    title: "Ø·Ù„Ø¨ Ø¥Ø±Ø¬Ø§Ø¹",
-    description: "ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø·Ù„Ø¨ Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹ ÙˆØ³ÙŠØªÙ… Ù…Ø±Ø§Ø¬Ø¹ØªÙ‡.",
+    title: "طلب إرجاع",
+    description: "تم إرسال طلب الإرجاع وسيتم مراجعته.",
     metadata: {
       return_id: createdReturn.id,
       return_type: returnType,
@@ -154,15 +155,26 @@ export async function requestOrderReturnAction(orderId: string, formData: FormDa
     }
   });
 
+    await notifyNewReturnRequest({
+  returnId: createdReturn.id,
+  orderId: data.order.id,
+  orderNumber: data.order.order_number
+});
+  await createReturnRequestedNotification({
+    returnId: createdReturn.id,
+    orderId: data.order.id,
+    orderNumber: data.order.order_number
+  });
+
   revalidateReturnPaths(orderId, createdReturn.id);
-  redirect(`/account/returns/${createdReturn.id}?status=success&message=ØªÙ… Ø¥Ø±Ø³Ø§Ù„ Ø·Ù„Ø¨ Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹ ÙˆØ³ÙŠØªÙ… Ù…Ø±Ø§Ø¬Ø¹ØªÙ‡.`);
+  redirect(`/account/returns/${createdReturn.id}?status=success&message=تم إرسال طلب الإرجاع وسيتم مراجعته.`);
 }
 
 export async function approveReturnAction(returnId: string, formData: FormData) {
   const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirectAdminReturn(returnId, "error", "Ù„ÙŠØ³Øª Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ù…Ø±ØªØ¬Ø¹Ø§Øª.");
+    redirectAdminReturn(returnId, "error", "ليست لديك صلاحية اعتماد المرتجعات.");
   }
 
   const adminNote = String(formData.get("admin_note") ?? "").trim();
@@ -183,7 +195,7 @@ export async function approveReturnAction(returnId: string, formData: FormData) 
     .returns<{ id: string; order_id: string } | null>();
 
   if (error || !data) {
-    redirectAdminReturn(returnId, "error", "ØªØ¹Ø°Ø± Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ù…Ø±ØªØ¬Ø¹ Ø£Ùˆ ØªÙ…Øª Ù…Ø¹Ø§Ù„Ø¬ØªÙ‡ Ù…Ø³Ø¨Ù‚Ù‹Ø§.");
+    redirectAdminReturn(returnId, "error", "تعذر اعتماد المرتجع أو تمت معالجته مسبقًا.");
   }
 
   await writeAdminReturnLogs({
@@ -192,25 +204,25 @@ export async function approveReturnAction(returnId: string, formData: FormData) 
     returnId,
     eventType: "order.return_approved",
     auditAction: "return.approve",
-    title: "Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ù…Ø±ØªØ¬Ø¹",
-    description: "ØªÙ… Ø§Ø¹ØªÙ…Ø§Ø¯ Ø·Ù„Ø¨ Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹."
+    title: "اعتماد المرتجع",
+    description: "تم اعتماد طلب الإرجاع."
   });
 
   revalidateReturnPaths(data.order_id, returnId);
-  redirectAdminReturn(returnId, "success", "ØªÙ… Ø§Ø¹ØªÙ…Ø§Ø¯ Ø§Ù„Ù…Ø±ØªØ¬Ø¹.");
+  redirectAdminReturn(returnId, "success", "تم اعتماد المرتجع.");
 }
 
 export async function rejectReturnAction(returnId: string, formData: FormData) {
   const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirectAdminReturn(returnId, "error", "Ù„ÙŠØ³Øª Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ø±ÙØ¶ Ø§Ù„Ù…Ø±ØªØ¬Ø¹Ø§Øª.");
+    redirectAdminReturn(returnId, "error", "ليست لديك صلاحية رفض المرتجعات.");
   }
 
   const reason = String(formData.get("admin_note") ?? "").trim();
 
   if (!reason) {
-    redirectAdminReturn(returnId, "error", "Ø³Ø¨Ø¨ Ø§Ù„Ø±ÙØ¶ Ù…Ø·Ù„ÙˆØ¨.");
+    redirectAdminReturn(returnId, "error", "سبب الرفض مطلوب.");
   }
 
   const now = new Date().toISOString();
@@ -230,7 +242,7 @@ export async function rejectReturnAction(returnId: string, formData: FormData) {
     .returns<{ id: string; order_id: string } | null>();
 
   if (error || !data) {
-    redirectAdminReturn(returnId, "error", "ØªØ¹Ø°Ø± Ø±ÙØ¶ Ø§Ù„Ù…Ø±ØªØ¬Ø¹ Ø£Ùˆ ØªÙ…Øª Ù…Ø¹Ø§Ù„Ø¬ØªÙ‡ Ù…Ø³Ø¨Ù‚Ù‹Ø§.");
+    redirectAdminReturn(returnId, "error", "تعذر رفض المرتجع أو تمت معالجته مسبقًا.");
   }
 
   await writeAdminReturnLogs({
@@ -239,13 +251,13 @@ export async function rejectReturnAction(returnId: string, formData: FormData) {
     returnId,
     eventType: "order.return_rejected",
     auditAction: "return.reject",
-    title: "Ø±ÙØ¶ Ø§Ù„Ù…Ø±ØªØ¬Ø¹",
-    description: "ØªÙ… Ø±ÙØ¶ Ø·Ù„Ø¨ Ø§Ù„Ø¥Ø±Ø¬Ø§Ø¹.",
+    title: "رفض المرتجع",
+    description: "تم رفض طلب الإرجاع.",
     metadata: { reason }
   });
 
   revalidateReturnPaths(data.order_id, returnId);
-  redirectAdminReturn(returnId, "success", "ØªÙ… Ø±ÙØ¶ Ø§Ù„Ù…Ø±ØªØ¬Ø¹.");
+  redirectAdminReturn(returnId, "success", "تم رفض المرتجع.");
 }
 
 export async function receiveReturnAction(returnId: string) {
@@ -313,20 +325,20 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
   const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirectAdminReturn(returnId, "error", "Ù„ÙŠØ³Øª Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© ØªÙ†ÙÙŠØ° Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯.");
+    redirectAdminReturn(returnId, "error", "ليست لديك صلاحية تنفيذ الاسترداد.");
   }
 
   const detail = await getAdminReturnById(returnId);
 
   if (!detail) {
-    redirectAdminReturn(returnId, "error", "Ø§Ù„Ù…Ø±ØªØ¬Ø¹ ØºÙŠØ± Ù…ÙˆØ¬ÙˆØ¯.");
+    redirectAdminReturn(returnId, "error", "المرتجع غير موجود.");
   }
 
   const canRefund =
     detail.status === "received" || (detail.status === "approved" && detail.return_type === "refund_only");
 
   if (!canRefund) {
-    redirectAdminReturn(returnId, "error", "Ù„Ø§ ÙŠÙ…ÙƒÙ† ØªÙ†ÙÙŠØ° Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ù‚Ø¨Ù„ Ø§Ù„Ø§Ø¹ØªÙ…Ø§Ø¯ ÙˆØ§Ù„Ø§Ø³ØªÙ„Ø§Ù….");
+    redirectAdminReturn(returnId, "error", "لا يمكن تنفيذ الاسترداد قبل الاعتماد والاستلام.");
   }
 
   const refundMethod = String(formData.get("refund_method") ?? "") as RefundMethod;
@@ -335,14 +347,14 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
   const adminNote = String(formData.get("admin_note") ?? "").trim();
 
   if (!refundMethods.includes(refundMethod)) {
-    redirectAdminReturn(returnId, "error", "ÙŠØ±Ø¬Ù‰ Ø§Ø®ØªÙŠØ§Ø± Ø·Ø±ÙŠÙ‚Ø© Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯.");
+    redirectAdminReturn(returnId, "error", "يرجى اختيار طريقة الاسترداد.");
   }
 
   const maxRefund = clampRefundTotal(detail.expected_refund_omr, detail.order.total_omr);
   const refundAmount = roundOmr(requestedAmount);
 
   if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount > maxRefund) {
-    redirectAdminReturn(returnId, "error", "Ù…Ø¨Ù„Øº Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ ØºÙŠØ± ØµØ§Ù„Ø­ Ø£Ùˆ ÙŠØªØ¬Ø§ÙˆØ² Ø§Ù„Ù…Ø¨Ù„Øº Ø§Ù„Ù…Ø³Ù…ÙˆØ­.");
+    redirectAdminReturn(returnId, "error", "مبلغ الاسترداد غير صالح أو يتجاوز المبلغ المسموح.");
   }
 
   const now = new Date().toISOString();
@@ -365,7 +377,7 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
     .returns<{ id: string; order_id: string } | null>();
 
   if (error || !data) {
-    redirectAdminReturn(returnId, "error", "ØªØ¹Ø°Ø± ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ø£Ùˆ ØªÙ… ØªÙ†ÙÙŠØ°Ù‡ Ù…Ø³Ø¨Ù‚Ù‹Ø§.");
+    redirectAdminReturn(returnId, "error", "تعذر تسجيل الاسترداد أو تم تنفيذه مسبقًا.");
   }
 
   await writeAdminReturnLogs({
@@ -374,8 +386,8 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
     returnId,
     eventType: "order.refunded",
     auditAction: "refund.create",
-    title: "ØªØ³Ø¬ÙŠÙ„ Ø§Ø³ØªØ±Ø¯Ø§Ø¯",
-    description: "ØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø§Ø³ØªØ±Ø¯Ø§Ø¯ ÙŠØ¯ÙˆÙŠ Ù„Ù„Ù…Ø±ØªØ¬Ø¹.",
+    title: "تسجيل استرداد",
+    description: "تم تسجيل استرداد يدوي للمرتجع.",
     metadata: {
       refund_method: refundMethod,
       refund_amount_omr: refundAmount
@@ -383,14 +395,14 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
   });
 
   revalidateReturnPaths(data.order_id, returnId);
-  redirectAdminReturn(returnId, "success", "ØªÙ… ØªØ³Ø¬ÙŠÙ„ Ø§Ù„Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ø§Ù„ÙŠØ¯ÙˆÙŠ.");
+  redirectAdminReturn(returnId, "success", "تم تسجيل الاسترداد اليدوي.");
 }
 
 export async function closeReturnAction(returnId: string, formData: FormData) {
   const admin = await requireAdminRole(["owner", "manager"]);
 
   if (!admin) {
-    redirectAdminReturn(returnId, "error", "Ù„ÙŠØ³Øª Ù„Ø¯ÙŠÙƒ ØµÙ„Ø§Ø­ÙŠØ© Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ù…Ø±ØªØ¬Ø¹Ø§Øª.");
+    redirectAdminReturn(returnId, "error", "ليست لديك صلاحية إغلاق المرتجعات.");
   }
 
   const adminNote = String(formData.get("admin_note") ?? "").trim();
@@ -408,7 +420,7 @@ export async function closeReturnAction(returnId: string, formData: FormData) {
     .returns<{ id: string; order_id: string } | null>();
 
   if (error || !data) {
-    redirectAdminReturn(returnId, "error", "ØªØ¹Ø°Ø± Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ù…Ø±ØªØ¬Ø¹.");
+    redirectAdminReturn(returnId, "error", "تعذر إغلاق المرتجع.");
   }
 
   await writeAdminReturnLogs({
@@ -417,12 +429,12 @@ export async function closeReturnAction(returnId: string, formData: FormData) {
     returnId,
     eventType: "order.return_closed",
     auditAction: "return.close",
-    title: "Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ù…Ø±ØªØ¬Ø¹",
-    description: "ØªÙ… Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ù…Ø±ØªØ¬Ø¹ Ø¯ÙˆÙ† Ø§Ø³ØªØ±Ø¯Ø§Ø¯ Ø¥Ø¶Ø§ÙÙŠ."
+    title: "إغلاق المرتجع",
+    description: "تم إغلاق المرتجع دون استرداد إضافي."
   });
 
   revalidateReturnPaths(data.order_id, returnId);
-  redirectAdminReturn(returnId, "success", "ØªÙ… Ø¥ØºÙ„Ø§Ù‚ Ø§Ù„Ù…Ø±ØªØ¬Ø¹.");
+  redirectAdminReturn(returnId, "success", "تم إغلاق المرتجع.");
 }
 
 async function writeAdminReturnLogs({
@@ -593,4 +605,53 @@ async function getPreviouslyReturnedQuantities(orderId: string, orderItemIds: st
   }, new Map<string, number>());
 }
 
+async function notifyNewReturnRequest({
+  returnId,
+  orderId,
+  orderNumber
+}: {
+  returnId: string;
+  orderId: string;
+  orderNumber: string;
+}) {
+  try {
+    const supabase = createAdminClient();
 
+    const { data: existingNotification, error: lookupError } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("type", "return.requested")
+      .eq("entity_type", "order_return")
+      .eq("entity_id", returnId)
+      .eq("is_read", false)
+      .limit(1)
+      .maybeSingle()
+      .returns<{ id: string } | null>();
+
+    if (lookupError) {
+      console.error("Failed to check return notification", lookupError);
+      return;
+    }
+
+    if (existingNotification) {
+      return;
+    }
+
+    const { error: insertError } = await supabase
+      .from("notifications")
+      .insert({
+        type: "return.requested",
+        title: "طلب إرجاع جديد",
+        message: `تم استلام طلب إرجاع للطلب رقم ${orderNumber}.`,
+        entity_type: "order_return",
+        entity_id: returnId,
+        is_read: false
+      });
+
+    if (insertError) {
+      console.error("Failed to create return notification", insertError);
+    }
+  } catch (error) {
+    console.error("notifyNewReturnRequest failed", error);
+  }
+}

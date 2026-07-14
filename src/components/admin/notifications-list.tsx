@@ -24,6 +24,7 @@ export function NotificationsList({ notifications, compact = false }: Notificati
     <div className={cn("space-y-3", compact && "space-y-2")}>
       {notifications.map((notification) => {
         const href = getNotificationHref(notification);
+        const typeLabel = getNotificationTypeLabel(notification.type);
 
         return (
           <Card
@@ -37,7 +38,8 @@ export function NotificationsList({ notifications, compact = false }: Notificati
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="font-semibold text-oud-brown">{notification.title}</h3>
+                    <h3 className="font-semibold text-oud-brown">{notification.title || typeLabel}</h3>
+                    {typeLabel ? <Badge variant="soft">{typeLabel}</Badge> : null}
                     <Badge variant={notification.is_read ? "soft" : "gold"}>
                       {notification.is_read ? "مقروء" : "جديد"}
                     </Badge>
@@ -88,6 +90,18 @@ function getNotificationHref(notification: AdminNotification) {
 
   if (notification.entity_type === "product" && notification.entity_id) {
     return `/admin/products/${notification.entity_id}/edit`;
+  }
+
+  if (notification.entity_type === "return" && notification.entity_id) {
+    return `/admin/returns/${notification.entity_id}`;
+  }
+
+  return null;
+}
+
+function getNotificationTypeLabel(type: string) {
+  if (type === "return.requested") {
+    return "طلب إرجاع جديد";
   }
 
   return null;

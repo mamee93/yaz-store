@@ -35,6 +35,65 @@ export async function createOrderNotification({
   }
 }
 
+export async function createReturnRequestedNotification({
+  returnId,
+  orderId,
+  orderNumber
+}: {
+  returnId: string;
+  orderId: string;
+  orderNumber: string;
+}) {
+  try {
+    const supabase = createAdminClient();
+    const { data: existingNotification, error: existingError } = await supabase
+      .from("notifications")
+      .select("id")
+      .eq("type", "return.requested")
+      .eq("entity_type", "return")
+      .eq("entity_id", returnId)
+      .eq("is_read", false)
+      .maybeSingle()
+      .returns<{ id: string } | null>();
+
+    if (existingError) {
+      console.error("Failed to check existing return notification", existingError);
+      return;
+    }
+
+    if (existingNotification) {
+      return;
+    }
+
+    const payload: NotificationInsert = {
+      type: "return.requested",
+      title: "طلب إرجاع جديد",
+      message: `تم استلام طلب إرجاع للطلب رقم ${orderNumber}`,
+      entity_type: "return",
+      entity_id: returnId,
+      metadata: {
+        return_id: returnId,
+        order_id: orderId,
+        order_number: orderNumber
+      }
+    };
+
+    const { error } = await supabase.from("notifications").insert(payload as never);
+
+    if (error) {
+      console.error("Failed to create return notification", error);
+      return;
+    }
+
+    revalidatePath("/admin");
+    revalidatePath("/admin/notifications");
+    revalidatePath("/admin/returns");
+    revalidatePath(`/admin/returns/${returnId}`);
+  } catch (error) {
+    console.error("Failed to create return notification", error);
+  }
+}
+
 export async function markNotificationReadAction(formData: FormData) {
   const admin = await requireAdmin();
 
