@@ -62,6 +62,19 @@ export type AdminReturnDetail = ReturnDetail & {
   admin_names: Record<string, string>;
 };
 
+export type AdminOrderReturnSummaryItem = Pick<
+  OrderReturnItemRow,
+  "id" | "return_id" | "order_item_id" | "quantity" | "line_refund_omr"
+>;
+
+export type AdminOrderReturnSummary = Pick<
+  OrderReturnRow,
+  "id" | "order_id" | "status" | "return_type" | "reason" | "requested_at" | "refund_amount_omr" | "created_at"
+> & {
+  order_return_items: AdminOrderReturnSummaryItem[];
+  expected_refund_omr: number;
+};
+
 export type AdminReturnFilters = {
   q?: string;
   status?: string;
@@ -236,6 +249,75 @@ export async function getAdminReturnById(returnId: string) {
     customer_phone: detail.order.customer_phone_snapshot,
     admin_names: await getAdminNames(adminIds)
   } satisfies AdminReturnDetail;
+}
+
+export async function getAdminOrderReturns(orderId: string) {
+  const admin = await requireAdmin();
+
+  if (!admin) {
+    return [];
+  }
+
+  const supabase = createAdminClient();
+  const { data: returns, error: returnsError } = await supabase
+    .from("order_returns")
+    .select("id,order_id,status,return_type,reason,requested_at,refund_amount_omr,created_at")
+    .eq("order_id", orderId)
+    .order("requested_at", { ascending: false })
+    .returns<
+      Array<
+        Pick<
+          OrderReturnRow,
+          | "id"
+          | "order_id"
+          | "status"
+          | "return_type"
+          | "reason"
+          | "requested_at"
+          | "refund_amount_omr"
+          | "created_at"
+        >
+      >
+    >();
+
+  if (returnsError) {
+    console.error("Failed to read order returns summary", returnsError);
+    return [];
+  }
+
+  if (!returns || returns.length === 0) {
+    return [];
+  }
+
+  const returnIds = returns.map((item) => item.id);
+  const { data: items, error: itemsError } = await supabase
+    .from("order_return_items")
+    .select("id,return_id,order_item_id,quantity,line_refund_omr")
+    .in("return_id", returnIds)
+    .returns<AdminOrderReturnSummaryItem[]>();
+
+  if (itemsError) {
+    console.error("Failed to read order return items summary", itemsError);
+  }
+
+  const itemsByReturnId = new Map<string, AdminOrderReturnSummaryItem[]>();
+
+  for (const item of items ?? []) {
+    const grouped = itemsByReturnId.get(item.return_id) ?? [];
+    grouped.push(item);
+    itemsByReturnId.set(item.return_id, grouped);
+  }
+
+  return returns.map((returnRequest) => {
+    const returnItems = itemsByReturnId.get(returnRequest.id) ?? [];
+    const expectedRefund = sumReturnItems(returnItems);
+
+    return {
+      ...returnRequest,
+      order_return_items: returnItems,
+      expected_refund_omr: expectedRefund > 0 ? expectedRefund : Number(returnRequest.refund_amount_omr ?? 0)
+    } satisfies AdminOrderReturnSummary;
+  });
 }
 
 export async function getOpenReturnForOrder(orderId: string) {

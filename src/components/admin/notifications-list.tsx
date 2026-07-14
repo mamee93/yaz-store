@@ -92,7 +92,10 @@ function getNotificationHref(notification: AdminNotification) {
     return `/admin/products/${notification.entity_id}/edit`;
   }
 
-  if (notification.entity_type === "return" && notification.entity_id) {
+  if (
+    (notification.entity_type === "return" || notification.entity_type === "order_return") &&
+    notification.entity_id
+  ) {
     return `/admin/returns/${notification.entity_id}`;
   }
 

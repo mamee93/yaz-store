@@ -1,5 +1,16 @@
 import Image from "next/image";
-import { CalendarClock, Check, Pin, Save, Trash2, UserCheck, UserMinus } from "lucide-react";
+import Link from "next/link";
+import {
+  AlertTriangle,
+  CalendarClock,
+  Check,
+  ExternalLink,
+  Pin,
+  Save,
+  Trash2,
+  UserCheck,
+  UserMinus
+} from "lucide-react";
 import { adminRoleLabels } from "@/constants/admin-roles";
 import { ConfirmActionButton } from "@/components/admin/confirm-action-button";
 import { InvoiceActions } from "@/components/admin/invoice-actions";
@@ -17,12 +28,33 @@ import { getOrderEventLabel, getOrderStatusLabel } from "@/features/orders/label
 import type { AdminOrderDetail, OrderInternalNoteItem } from "@/features/orders/queries";
 import { OrderStatusSelect, orderStatusLabels } from "./order-status-select";
 
+type OrderReturnSummary = AdminOrderDetail["returns"][number];
+type OrderItemLookup = Map<string, AdminOrderDetail["order_items"][number]>;
+
 type OrderDetailViewProps = {
   order: AdminOrderDetail;
   canUpdateOrder?: boolean;
   canAssignOrder?: boolean;
   canManageNotes?: boolean;
   canPrintOrder?: boolean;
+};
+
+const openReturnStatuses: OrderReturnSummary["status"][] = ["requested", "approved", "received"];
+
+const orderReturnStatusLabels: Record<OrderReturnSummary["status"], string> = {
+  requested: "بانتظار المراجعة",
+  approved: "معتمد",
+  rejected: "مرفوض",
+  received: "تم الاستلام",
+  refunded: "تم الاسترداد",
+  closed: "مغلق"
+};
+
+const orderReturnTypeLabels: Record<OrderReturnSummary["return_type"], string> = {
+  full_return: "إرجاع كامل",
+  partial_return: "إرجاع جزئي",
+  exchange: "استبدال",
+  refund_only: "استرداد فقط"
 };
 
 const paymentMethodLabels = {
@@ -57,6 +89,9 @@ export function OrderDetailView({
   const unassignAction = unassignOrderAction.bind(null, order.id);
   const addNoteAction = addOrderInternalNoteAction.bind(null, order.id);
   const address = parseAddressSnapshot(order.delivery_address_snapshot);
+  const returnRequests = order.returns ?? [];
+  const openReturn = returnRequests.find((item) => isOpenReturnStatus(item.status));
+  const orderItemsById = new Map(order.order_items.map((item) => [item.id, item]));
 
   return (
     <>
@@ -72,6 +107,8 @@ export function OrderDetailView({
       </style>
       <div className="admin-order-screen grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_24rem]">
         <div className="space-y-5">
+          {openReturn ? <OpenReturnAlert returnRequest={openReturn} /> : null}
+
           <Card className="p-4 shadow-none sm:p-5">
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div>
@@ -127,6 +164,10 @@ export function OrderDetailView({
               </div>
               <InvoiceActions invoiceId={order.invoice_id} />
             </Card>
+          ) : null}
+
+          {returnRequests.length > 0 ? (
+            <OrderReturnsSummary returns={returnRequests} orderItemsById={orderItemsById} />
           ) : null}
 
           <Card className="overflow-hidden shadow-none">
@@ -318,6 +359,137 @@ export function OrderDetailView({
       <PrintableInvoice order={order} address={address} />
       <PrintableShippingLabel order={order} address={address} />
     </>
+  );
+}
+
+function OpenReturnAlert({ returnRequest }: { returnRequest: OrderReturnSummary }) {
+  return (
+    <Card className="border-oud-gold/45 bg-oud-gold/10 p-4 shadow-none sm:p-5">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="mt-1 inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-oud-gold/20 text-oud-brown">
+            <AlertTriangle className="size-5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0">
+            <h2 className="font-display text-xl font-bold text-oud-brown">
+              يوجد طلب إرجاع يحتاج إلى مراجعة
+            </h2>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Badge variant="soft" className={getReturnStatusBadgeClass(returnRequest.status)}>
+                {orderReturnStatusLabels[returnRequest.status]}
+              </Badge>
+              <span className="text-xs text-oud-muted" dir="ltr">
+                {returnRequest.id}
+              </span>
+            </div>
+          </div>
+        </div>
+        <AdminReturnLink returnId={returnRequest.id} label="عرض ومعالجة المرتجع" />
+      </div>
+    </Card>
+  );
+}
+
+function OrderReturnsSummary({
+  returns,
+  orderItemsById
+}: {
+  returns: OrderReturnSummary[];
+  orderItemsById: OrderItemLookup;
+}) {
+  return (
+    <Card className="p-4 shadow-none sm:p-5">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="font-display text-xl font-bold text-oud-brown sm:text-2xl">
+            طلبات الإرجاع والاستبدال
+          </h2>
+          <p className="mt-1 text-sm text-oud-muted">
+            ملخص المرتجعات المرتبطة بهذا الطلب، وتبقى المعالجة داخل صفحة المرتجع المستقلة.
+          </p>
+        </div>
+        <Badge variant="soft">{returns.length} طلب</Badge>
+      </div>
+
+      <div className="mt-5 grid gap-4">
+        {returns.map((returnRequest) => (
+          <div
+            key={returnRequest.id}
+            className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-4"
+          >
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div className="min-w-0 space-y-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge variant="soft" className={getReturnStatusBadgeClass(returnRequest.status)}>
+                    {orderReturnStatusLabels[returnRequest.status]}
+                  </Badge>
+                  <Badge variant="soft">{orderReturnTypeLabels[returnRequest.return_type]}</Badge>
+                  <span className="text-xs font-semibold text-oud-muted" dir="ltr">
+                    {returnRequest.id}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                  <MiniStat label="رقم المرتجع" value={returnRequest.id} dir="ltr" />
+                  <MiniStat label="تاريخ الطلب" value={formatDateTime(returnRequest.requested_at)} />
+                  <MiniStat label="المبلغ المتوقع" value={<Price value={returnRequest.expected_refund_omr} />} />
+                  <MiniStat label="السبب" value={returnRequest.reason || "غير محدد"} />
+                </div>
+              </div>
+              <AdminReturnLink returnId={returnRequest.id} label="عرض ومعالجة المرتجع" />
+            </div>
+
+            <div className="mt-4 rounded-oud bg-white/70 p-3">
+              <h3 className="text-sm font-semibold text-oud-brown">المنتجات والكميات</h3>
+              {returnRequest.order_return_items.length > 0 ? (
+                <div className="mt-3 grid gap-2">
+                  {returnRequest.order_return_items.map((item) => {
+                    const orderItem = orderItemsById.get(item.order_item_id);
+
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex flex-col gap-2 rounded-md border border-oud-brown/10 bg-white px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-oud-brown">
+                            {orderItem?.product_name_ar_snapshot ?? "منتج غير متوفر"}
+                          </p>
+                          <p className="mt-1 text-xs text-oud-muted" dir="ltr">
+                            {orderItem?.sku_snapshot ?? item.order_item_id}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 text-sm text-oud-muted">
+                          <span>الكمية: {item.quantity}</span>
+                          <span>·</span>
+                          <Price value={item.line_refund_omr} className="text-sm text-oud-muted" />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-md bg-oud-beige/35 p-3 text-sm text-oud-muted">
+                  لا توجد عناصر مسجلة لهذا المرتجع.
+                </p>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
+function AdminReturnLink({ returnId, label }: { returnId: string; label: string }) {
+  return (
+    <Link
+      href={`/admin/returns/${returnId}`}
+      className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-md bg-oud-brown px-4 py-2 text-center text-sm font-semibold text-oud-ivory transition hover:bg-oud-coffee sm:w-auto"
+    >
+      <ExternalLink className="size-4" aria-hidden="true" />
+      {label}
+    </Link>
   );
 }
 
@@ -574,7 +746,7 @@ function MiniStat({
   return (
     <div className="rounded-oud bg-oud-beige/35 p-3">
       <p className="text-xs text-oud-muted">{label}</p>
-      <div className="mt-1 font-semibold text-oud-brown" dir={dir}>
+      <div className="mt-1 break-words font-semibold text-oud-brown" dir={dir}>
         {value}
       </div>
     </div>
@@ -600,6 +772,34 @@ function getStatusBadgeVariant(status: AdminOrderDetail["status"]) {
   }
 
   return "gold";
+}
+
+function isOpenReturnStatus(status: OrderReturnSummary["status"]) {
+  return openReturnStatuses.includes(status);
+}
+
+function getReturnStatusBadgeClass(status: OrderReturnSummary["status"]) {
+  if (status === "requested") {
+    return "border-oud-gold/40 bg-oud-gold/15 text-oud-brown";
+  }
+
+  if (status === "approved") {
+    return "border-blue-900/15 bg-blue-900/10 text-blue-900";
+  }
+
+  if (status === "received") {
+    return "border-purple-900/15 bg-purple-900/10 text-purple-900";
+  }
+
+  if (status === "refunded") {
+    return "border-green-900/15 bg-green-900/10 text-green-900";
+  }
+
+  if (status === "rejected") {
+    return "border-red-900/15 bg-red-900/10 text-red-900";
+  }
+
+  return "border-gray-500/20 bg-gray-500/10 text-gray-700";
 }
 
 function formatDateTime(value: string) {

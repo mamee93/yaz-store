@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/features/auth/queries";
+import { getAdminOrderReturns, type AdminOrderReturnSummary } from "@/features/returns/queries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizeAdminRole, type AdminRole } from "@/constants/admin-roles";
 import type { Database, Json } from "@/types/database";
@@ -62,6 +63,7 @@ export type AdminOrderDetail = AdminOrderListItem & {
   assigned_admin: OrderAdminLite | null;
   order_items: AdminOrderItem[];
   payments: AdminPaymentItem[];
+  returns: AdminOrderReturnSummary[];
   events: OrderEventItem[];
   internal_notes: OrderInternalNoteItem[];
   assignable_admins: OrderAdminLite[];
@@ -234,6 +236,7 @@ export async function getAdminOrderById(orderId: string) {
     { data: events, error: eventsError },
     { data: notes, error: notesError },
     { data: invoice, error: invoiceError },
+    orderReturns,
     { data: assignableAdmins, error: adminsError }
   ] = await Promise.all([
     supabase
@@ -265,6 +268,7 @@ export async function getAdminOrderById(orderId: string) {
       .eq("order_id", orderId)
       .maybeSingle()
       .returns<{ id: string } | null>(),
+    getAdminOrderReturns(orderId),
     supabase
       .from("admins")
       .select("id,full_name,display_name,email,role,is_active,last_sign_in_at")
@@ -298,6 +302,7 @@ export async function getAdminOrderById(orderId: string) {
     assigned_admin_role: assignedAdmin?.role ?? null,
     invoice_id: invoice?.id ?? null,
     assigned_admin: assignedAdmin,
+    returns: orderReturns,
     events:
       events && events.length > 0
         ? events.map((event) => ({
