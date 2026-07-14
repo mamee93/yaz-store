@@ -40,6 +40,7 @@ type SyncedAddress = Pick<
   | "city"
   | "area"
   | "address_line_1"
+  | "address_line_2"
   | "delivery_notes"
   | "is_default"
   | "updated_at"
@@ -248,6 +249,7 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
       wilayat: parsed.data.wilayat,
       area: parsed.data.area,
       detailedAddress: parsed.data.detailed_address,
+      addressLine2: null,
       deliveryNotes: null
     });
   } else {
@@ -368,10 +370,15 @@ export async function updateCustomerProfileAction(formData: FormData) {
     wilayat: savedCustomer.wilayat,
     area: savedCustomer.area,
     detailedAddress: savedCustomer.detailed_address,
+    addressLine2: getOptionalFormText(formData.get("address_line_2")),
     deliveryNotes: getOptionalFormText(formData.get("delivery_notes"))
   });
 
-  assertProfileSaveMatchesInput(savedCustomer, savedAddress, parsedDelivery.data);
+  assertProfileSaveMatchesInput(savedCustomer, savedAddress, {
+    ...parsedDelivery.data,
+    address_line_2: getOptionalFormText(formData.get("address_line_2")),
+    delivery_notes: getOptionalFormText(formData.get("delivery_notes"))
+  });
 
   revalidatePath("/account");
   revalidatePath("/account/profile");
@@ -438,6 +445,7 @@ async function upsertPrimaryCheckoutAddress({
   wilayat,
   area,
   detailedAddress,
+  addressLine2,
   deliveryNotes
 }: {
   customerId: string;
@@ -447,6 +455,7 @@ async function upsertPrimaryCheckoutAddress({
   wilayat: string | null;
   area: string | null;
   detailedAddress: string | null;
+  addressLine2: string | null;
   deliveryNotes: string | null;
 }) {
   if (!governorate || !wilayat || !detailedAddress) {
@@ -462,12 +471,11 @@ async function upsertPrimaryCheckoutAddress({
   const supabase = createAdminClient();
   const { data: addresses, error: lookupError } = await supabase
     .from("addresses")
-    .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default,updated_at")
+    .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,address_line_2,delivery_notes,is_default,updated_at")
     .eq("customer_id", customerId)
     .order("is_default", { ascending: false })
     .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(1)
     .returns<SyncedAddress[]>();
 
   if (lookupError) {
@@ -476,6 +484,9 @@ async function upsertPrimaryCheckoutAddress({
   }
 
   const address = addresses?.[0] ?? null;
+  const extraDefaultAddressIds = (addresses ?? [])
+    .filter((item) => item.is_default && item.id !== address?.id)
+    .map((item) => item.id);
   const payload = {
     full_name: fullName,
     phone,
@@ -485,7 +496,8 @@ async function upsertPrimaryCheckoutAddress({
     city: wilayat,
     area,
     address_line_1: detailedAddress,
-    delivery_notes: deliveryNotes ?? address?.delivery_notes ?? null,
+    address_line_2: addressLine2,
+    delivery_notes: deliveryNotes,
     is_default: true,
     updated_at: new Date().toISOString()
   } satisfies Database["public"]["Tables"]["addresses"]["Update"];
@@ -495,13 +507,17 @@ async function upsertPrimaryCheckoutAddress({
       .from("addresses")
       .update(payload as never, { count: "exact" })
       .eq("id", address.id)
-      .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default,updated_at")
+      .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,address_line_2,delivery_notes,is_default,updated_at")
       .maybeSingle()
       .returns<SyncedAddress | null>();
 
     if (error || !data || count === 0) {
       console.error("Checkout address update after customer save failed", { error, count, addressId: address.id });
       redirect(`/account/profile?status=error&message=${encodeURIComponent("تم حفظ العميل، لكن تعذر تحديث عنوان التوصيل.")}`);
+    }
+
+    if (extraDefaultAddressIds.length > 0) {
+      await clearExtraDefaultAddresses(customerId, extraDefaultAddressIds);
     }
 
     return data;
@@ -513,7 +529,7 @@ async function upsertPrimaryCheckoutAddress({
       customer_id: customerId,
       ...payload
     } as Database["public"]["Tables"]["addresses"]["Insert"] as never)
-    .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default,updated_at")
+    .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,address_line_2,delivery_notes,is_default,updated_at")
     .single()
     .returns<SyncedAddress>();
 
@@ -525,6 +541,27 @@ async function upsertPrimaryCheckoutAddress({
   return data;
 }
 
+async function clearExtraDefaultAddresses(customerId: string, addressIds: string[]) {
+  const supabase = createAdminClient();
+  const { error } = await supabase
+    .from("addresses")
+    .update({
+      is_default: false,
+      updated_at: new Date().toISOString()
+    } as Database["public"]["Tables"]["addresses"]["Update"] as never)
+    .eq("customer_id", customerId)
+    .in("id", addressIds);
+
+  if (error) {
+    console.error("Failed to clear extra default customer addresses", {
+      customerId,
+      addressIds,
+      error
+    });
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تم تحديث العنوان، لكن تعذر تصحيح العناوين الافتراضية المكررة.")}`);
+  }
+}
+
 function assertProfileSaveMatchesInput(
   customer: SavedCustomerProfile,
   address: SyncedAddress,
@@ -534,6 +571,8 @@ function assertProfileSaveMatchesInput(
     wilayat: string | null;
     area: string | null;
     detailed_address: string | null;
+    address_line_2: string | null;
+    delivery_notes: string | null;
   }
 ) {
   const customerMatches =
@@ -550,7 +589,9 @@ function assertProfileSaveMatchesInput(
     normalizeCompare(address.wilayat) === normalizeCompare(input.wilayat) &&
     normalizeCompare(address.city) === normalizeCompare(input.wilayat) &&
     normalizeCompare(address.area) === normalizeCompare(input.area) &&
-    normalizeCompare(address.address_line_1) === normalizeCompare(input.detailed_address);
+    normalizeCompare(address.address_line_1) === normalizeCompare(input.detailed_address) &&
+    normalizeCompare(address.address_line_2) === normalizeCompare(input.address_line_2) &&
+    normalizeCompare(address.delivery_notes) === normalizeCompare(input.delivery_notes);
 
   if (!customerMatches || !addressMatches) {
     console.error("Customer profile save verification failed", {
