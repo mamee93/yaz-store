@@ -160,7 +160,7 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
     detailed_address: parsed.data.detailed_address
   };
 
-  let saveError = null;
+  let customerId = existingCustomer?.id ?? null;
 
   if (existingCustomer) {
     const { error } = await supabase
@@ -168,21 +168,57 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
       .update(customerPayload as never)
       .eq("id", existingCustomer.id);
 
-    saveError = error;
-  } else {
-    const { error } = await supabase
-      .from("customers")
-      .insert(customerPayload as never);
+    if (error) {
+      console.error("Customer delivery profile save failed:", {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
 
-    saveError = error;
+      redirect(
+        `/account?status=error&message=${encodeURIComponent(
+          "ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ØªÙˆØµÙŠÙ„. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰."
+        )}`
+      );
+    }
+  } else {
+    const { data, error } = await supabase
+      .from("customers")
+      .insert(customerPayload as never)
+      .select("id")
+      .single()
+      .returns<{ id: string }>();
+
+    if (error || !data) {
+      console.error("Customer delivery profile save failed:", error);
+
+      redirect(
+        `/account?status=error&message=${encodeURIComponent(
+          "ØªØ¹Ø°Ø± Ø­ÙØ¸ Ø¨ÙŠØ§Ù†Ø§Øª Ø§Ù„ØªÙˆØµÙŠÙ„. Ø­Ø§ÙˆÙ„ Ù…Ø±Ø© Ø£Ø®Ø±Ù‰."
+        )}`
+      );
+    }
+
+    customerId = data.id;
   }
 
-  if (saveError) {
+  if (customerId) {
+    await upsertPrimaryCheckoutAddress({
+      customerId,
+      fullName: customerPayload.full_name,
+      phone: parsed.data.phone,
+      governorate: parsed.data.governorate,
+      wilayat: parsed.data.wilayat,
+      area: parsed.data.area,
+      detailedAddress: parsed.data.detailed_address
+    });
+  } else {
     console.error("Customer delivery profile save failed:", {
-      message: saveError.message,
-      code: saveError.code,
-      details: saveError.details,
-      hint: saveError.hint
+      message: "Missing customer id after save",
+      code: null,
+      details: null,
+      hint: null
     });
 
     redirect(
@@ -193,6 +229,7 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
   }
 
   revalidatePath("/account");
+  revalidatePath("/checkout");
 
   redirect(
     `/account?status=success&message=${encodeURIComponent(
@@ -270,8 +307,24 @@ export async function updateCustomerProfileAction(formData: FormData) {
     redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر حفظ بياناتك. حاول مرة أخرى.")}`);
   }
 
+  const savedCustomerId =
+    existingCustomer?.id ?? (await findCustomerIdForAuthUser(user.id, email));
+
+  if (savedCustomerId) {
+    await upsertPrimaryCheckoutAddress({
+      customerId: savedCustomerId,
+      fullName: parsedName.data,
+      phone: parsedDelivery.data.phone,
+      governorate: parsedDelivery.data.governorate,
+      wilayat: parsedDelivery.data.wilayat,
+      area: parsedDelivery.data.area,
+      detailedAddress: parsedDelivery.data.detailed_address
+    });
+  }
+
   revalidatePath("/account");
   revalidatePath("/account/profile");
+  revalidatePath("/checkout");
   redirect(`/account/profile?status=success&message=${encodeURIComponent("تم حفظ بياناتك بنجاح.")}`);
 }
 
@@ -282,6 +335,102 @@ function normalizeNullableText(value: FormDataEntryValue | null) {
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+async function findCustomerIdForAuthUser(authUserId: string, email: string | null) {
+  const supabase = createAdminClient();
+  const query = email
+    ? `auth_user_id.eq.${authUserId},and(email.eq.${email},auth_user_id.is.null)`
+    : `auth_user_id.eq.${authUserId}`;
+  const { data, error } = await supabase
+    .from("customers")
+    .select("id")
+    .or(query)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle()
+    .returns<{ id: string } | null>();
+
+  if (error) {
+    console.error("Customer id lookup after profile save failed", error);
+    return null;
+  }
+
+  return data?.id ?? null;
+}
+
+async function upsertPrimaryCheckoutAddress({
+  customerId,
+  fullName,
+  phone,
+  governorate,
+  wilayat,
+  area,
+  detailedAddress
+}: {
+  customerId: string;
+  fullName: string;
+  phone: string;
+  governorate: string | null;
+  wilayat: string | null;
+  area: string | null;
+  detailedAddress: string | null;
+}) {
+  if (!governorate || !wilayat || !detailedAddress) {
+    return;
+  }
+
+  const supabase = createAdminClient();
+  const { data: addresses, error: lookupError } = await supabase
+    .from("addresses")
+    .select("id,is_default")
+    .eq("customer_id", customerId)
+    .order("is_default", { ascending: false })
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .returns<Array<Pick<Database["public"]["Tables"]["addresses"]["Row"], "id" | "is_default">>>();
+
+  if (lookupError) {
+    console.error("Checkout address lookup after customer save failed", lookupError);
+    return;
+  }
+
+  const address = addresses?.[0] ?? null;
+  const payload = {
+    full_name: fullName,
+    phone,
+    country: "Oman",
+    governorate,
+    wilayat,
+    city: wilayat,
+    area,
+    address_line_1: detailedAddress,
+    is_default: true
+  } satisfies Database["public"]["Tables"]["addresses"]["Update"];
+
+  if (address) {
+    const { error } = await supabase
+      .from("addresses")
+      .update(payload as never)
+      .eq("id", address.id);
+
+    if (error) {
+      console.error("Checkout address update after customer save failed", error);
+    }
+
+    return;
+  }
+
+  const { error } = await supabase.from("addresses").insert({
+    customer_id: customerId,
+    ...payload
+  } as Database["public"]["Tables"]["addresses"]["Insert"] as never);
+
+  if (error) {
+    console.error("Checkout address insert after customer save failed", error);
+  }
 }
 
 function normalizeOmanPhone(value: FormDataEntryValue | null) {

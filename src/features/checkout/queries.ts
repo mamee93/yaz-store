@@ -42,6 +42,7 @@ export type CheckoutPrefillAddress = Pick<
   | "address_line_1"
   | "delivery_notes"
   | "is_default"
+  | "updated_at"
   | "created_at"
 >;
 
@@ -67,9 +68,10 @@ export async function getCheckoutPrefill(): Promise<CheckoutPrefill> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("addresses")
-    .select("id,full_name,phone,country,governorate,wilayat,area,address_line_1,delivery_notes,is_default,created_at")
+    .select("id,full_name,phone,country,governorate,wilayat,area,address_line_1,delivery_notes,is_default,updated_at,created_at")
     .eq("customer_id", customer.id)
     .order("is_default", { ascending: false })
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .returns<CheckoutPrefillAddress[]>();

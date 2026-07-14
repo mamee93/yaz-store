@@ -1,11 +1,7 @@
 import Image from "next/image";
 import { PackageCheck, TicketPercent, XCircle } from "lucide-react";
 import { Button, Card, Input, Price } from "@/components/ui";
-import {
-  getDeliveryFee,
-  getDeliveryMethod,
-  type DeliveryMethod
-} from "@/constants/oman-delivery";
+import { getDeliveryMethod, type DeliveryMethod } from "@/constants/oman-delivery";
 import type { CouponValidationState } from "@/features/coupons/actions";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import type { CartItem } from "@/stores/cart-store";
@@ -15,6 +11,7 @@ type OrderSummaryProps = {
   couponState: CouponValidationState;
   couponAction: (formData: FormData) => void;
   selectedDeliveryMethod: DeliveryMethod;
+  shippingFee: number;
   settings: StoreSettingsRead | null;
   isCouponPending?: boolean;
 };
@@ -24,6 +21,7 @@ export function OrderSummary({
   couponState,
   couponAction,
   selectedDeliveryMethod,
+  shippingFee,
   settings,
   isCouponPending = false
 }: OrderSummaryProps) {
@@ -31,7 +29,6 @@ export function OrderSummary({
   const discount = couponState.status === "success" ? couponState.discountAmount : 0;
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
   const selectedMethod = getDeliveryMethod(selectedDeliveryMethod);
-  const shippingFee = getDeliveryFee(selectedDeliveryMethod);
   const tax = settings?.is_tax_enabled
     ? Number((subtotalAfterDiscount * (settings.tax_rate / 100)).toFixed(3))
     : 0;

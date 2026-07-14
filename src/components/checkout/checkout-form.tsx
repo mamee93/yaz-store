@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Building2, Home } from "lucide-react";
 import { Input, Price, Select, Textarea } from "@/components/ui";
 import {
@@ -12,6 +12,7 @@ import {
 import { cn } from "@/utils/cn";
 import { PaymentMethodSelector } from "./payment-method-selector";
 import type { CheckoutPrefill } from "@/features/checkout/queries";
+import type { CheckoutShippingAddress } from "@/features/shipping/checkout-calculation";
 import type { CartItem } from "@/stores/cart-store";
 
 type CheckoutFormProps = {
@@ -21,6 +22,9 @@ type CheckoutFormProps = {
   onDeliveryMethodChange: (method: DeliveryMethod) => void;
   couponCode?: string | null;
   prefill: CheckoutPrefill;
+  onAddressChange?: (address: CheckoutShippingAddress) => void;
+  shippingZoneId?: string | null;
+  currentShippingFee?: number;
 };
 
 const defaultGovernorate = OMAN_GOVERNORATES[0]?.name ?? "مسقط";
@@ -31,7 +35,10 @@ export function CheckoutForm({
   selectedDeliveryMethod,
   onDeliveryMethodChange,
   couponCode,
-  prefill
+  prefill,
+  onAddressChange,
+  shippingZoneId,
+  currentShippingFee
 }: CheckoutFormProps) {
   const customer = prefill.customer;
   const savedAddress = prefill.address;
@@ -78,6 +85,10 @@ export function CheckoutForm({
   const hasEnteredNewAddress = Boolean(area.trim() || addressLine.trim() || deliveryNotes.trim());
   const showSaveAddressOption = Boolean(customer?.id && addressChanged && (prefill.hasSavedAddress || hasEnteredNewAddress));
 
+  useEffect(() => {
+    onAddressChange?.({ governorate, wilayat, area });
+  }, [area, governorate, onAddressChange, wilayat]);
+
   function handleGovernorateChange(value: string) {
     const nextWilayats = getGovernorateWilayats(value);
 
@@ -88,6 +99,7 @@ export function CheckoutForm({
   return (
     <form id="checkout-form" action={action} className="min-w-0 space-y-5" aria-label="نموذج إتمام الطلب">
       {couponCode ? <input type="hidden" name="couponCode" value={couponCode} /> : null}
+      <input type="hidden" name="shippingZoneId" value={shippingZoneId ?? ""} />
       {items.map((item) => (
         <div key={item.productId}>
           <input type="hidden" name="productId" value={item.productId} />
@@ -205,6 +217,12 @@ export function CheckoutForm({
           {DELIVERY_METHODS.map((method) => {
             const isSelected = selectedDeliveryMethod === method.id;
             const Icon = method.id === "pickup_office" ? Building2 : Home;
+            const displayFee =
+              isSelected && typeof currentShippingFee === "number"
+                ? currentShippingFee
+                : method.id === "pickup_office"
+                  ? 0
+                  : method.fee;
 
             return (
               <label
@@ -235,7 +253,7 @@ export function CheckoutForm({
                     {method.description}
                   </span>
                   <span className="mt-2 block">
-                    <Price value={method.fee} className="text-sm" />
+                    <Price value={displayFee} className="text-sm" />
                   </span>
                 </span>
               </label>

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, ShoppingBag, Truck } from "lucide-react";
 import { CheckoutForm } from "@/components/checkout/checkout-form";
@@ -14,12 +14,15 @@ import {
 } from "@/features/coupons/actions";
 import { createCheckoutOrderAction } from "@/features/checkout/actions";
 import type { CheckoutPrefill } from "@/features/checkout/queries";
+import { calculateCheckoutShippingQuote, type CheckoutShippingAddress } from "@/features/shipping/checkout-calculation";
+import type { ShippingZoneRow } from "@/features/shipping/queries";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import { useCart } from "@/hooks/use-cart";
 
 type CheckoutClientProps = {
   settings: StoreSettingsRead | null;
   prefill: CheckoutPrefill;
+  shippingZones: ShippingZoneRow[];
 };
 
 const initialCouponState: CouponValidationState = {
@@ -32,11 +35,14 @@ const initialCouponState: CouponValidationState = {
   cartSignature: ""
 };
 
-export function CheckoutClient({ settings, prefill }: CheckoutClientProps) {
+export function CheckoutClient({ settings, prefill, shippingZones }: CheckoutClientProps) {
   const searchParams = useSearchParams();
   const { isHydrated, items } = useCart();
   const [selectedDeliveryMethod, setSelectedDeliveryMethod] =
     useState<DeliveryMethod>("home_delivery");
+  const [shippingAddress, setShippingAddress] = useState<CheckoutShippingAddress>(() =>
+    getInitialShippingAddress(prefill)
+  );
   const [couponState, couponAction, isCouponPending] = useActionState(
     validateCheckoutCouponAction,
     initialCouponState
@@ -52,6 +58,16 @@ export function CheckoutClient({ settings, prefill }: CheckoutClientProps) {
   const subtotal = items.reduce((total, item) => total + item.price * item.quantity, 0);
   const discount = activeCouponState.status === "success" ? activeCouponState.discountAmount : 0;
   const subtotalAfterDiscount = Math.max(0, subtotal - discount);
+  const shippingQuote = useMemo(
+    () =>
+      calculateCheckoutShippingQuote({
+        deliveryMethod: selectedDeliveryMethod,
+        zones: shippingZones,
+        address: shippingAddress,
+        subtotalAfterDiscount
+      }),
+    [selectedDeliveryMethod, shippingZones, shippingAddress, subtotalAfterDiscount]
+  );
   const minimumOrderAmount = settings?.minimum_order_amount ?? 0;
   const isBelowMinimum = subtotalAfterDiscount < minimumOrderAmount;
   const canSubmit = !isBelowMinimum;
@@ -86,6 +102,9 @@ export function CheckoutClient({ settings, prefill }: CheckoutClientProps) {
                 onDeliveryMethodChange={setSelectedDeliveryMethod}
                 couponCode={activeCouponState.code}
                 prefill={prefill}
+                onAddressChange={setShippingAddress}
+                shippingZoneId={shippingQuote.zone?.id ?? null}
+                currentShippingFee={shippingQuote.shippingFee}
               />
 
               <aside className="min-w-0 space-y-4 lg:sticky lg:top-24">
@@ -96,6 +115,7 @@ export function CheckoutClient({ settings, prefill }: CheckoutClientProps) {
                   }
                   couponAction={couponAction}
                   selectedDeliveryMethod={selectedDeliveryMethod}
+                  shippingFee={shippingQuote.shippingFee}
                   settings={settings}
                   isCouponPending={isCouponPending}
                 />
@@ -122,6 +142,14 @@ export function CheckoutClient({ settings, prefill }: CheckoutClientProps) {
       </Section>
     </main>
   );
+}
+
+function getInitialShippingAddress(prefill: CheckoutPrefill): CheckoutShippingAddress {
+  return {
+    governorate: prefill.address?.governorate ?? prefill.customer?.governorate ?? null,
+    wilayat: prefill.address?.wilayat ?? prefill.customer?.wilayat ?? null,
+    area: prefill.address?.area ?? prefill.customer?.area ?? null
+  };
 }
 
 function CheckoutLoadingState() {

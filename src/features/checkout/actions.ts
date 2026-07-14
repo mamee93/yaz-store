@@ -14,7 +14,9 @@ import {
   type OrderEmailItem
 } from "@/features/email/templates/order-confirmation-email";
 import { createOrderNotification } from "@/features/notifications/actions";
-import { getDeliveryFee, getDeliveryMethod } from "@/constants/oman-delivery";
+import { getDeliveryMethod } from "@/constants/oman-delivery";
+import { buildShippingArea, calculateCheckoutShippingQuote } from "@/features/shipping/checkout-calculation";
+import type { ShippingZoneRow } from "@/features/shipping/queries";
 import { checkoutSchema, type CheckoutFormValues } from "@/validations/checkout-schema";
 import type { Database, Json } from "@/types/database";
 
@@ -161,12 +163,37 @@ export async function createCheckoutOrderAction(formData: FormData) {
     redirectWithCheckoutError("طريقة التوصيل غير صحيحة.");
   }
 
-  const shippingFee = roundMoney(getDeliveryFee(checkout.deliveryMethod));
-  const shippingArea = buildShippingArea({
+  const { data: activeShippingZones, error: shippingZonesError } = await supabase
+    .from("shipping_zones")
+    .select(
+      "id,name,city,area,delivery_fee_omr,free_shipping_minimum_omr,estimated_delivery_time,is_active,sort_order,created_at,updated_at"
+    )
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("city", { ascending: true })
+    .returns<ShippingZoneRow[]>();
+
+  if (shippingZonesError) {
+    console.error("Failed to read checkout shipping zones", shippingZonesError);
+  }
+
+  const shippingQuote = calculateCheckoutShippingQuote({
+    deliveryMethod: checkout.deliveryMethod,
+    zones: activeShippingZones ?? [],
+    address: {
+      governorate: checkout.governorate,
+      wilayat: checkout.wilayat,
+      area: checkout.area
+    },
+    subtotalAfterDiscount
+  });
+  const shippingFee = roundMoney(shippingQuote.shippingFee);
+  const shippingArea = shippingQuote.shippingArea ?? buildShippingArea({
     governorate: checkout.governorate,
     wilayat: checkout.wilayat,
     area: checkout.area
   });
+  const shippingZoneId = shippingQuote.zone?.id ?? null;
   const tax = settings.is_tax_enabled
     ? roundMoney(subtotalAfterDiscount * (settings.tax_rate / 100))
     : 0;
@@ -233,7 +260,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
         tax_omr: tax,
         total_omr: total,
         coupon_code: couponResult.code,
-        shipping_zone_id: checkout.shippingZoneId,
+        shipping_zone_id: shippingZoneId,
         shipping_area: shippingArea,
         shipping_fee_omr: shippingFee,
         delivery_method: checkout.deliveryMethod,
@@ -343,6 +370,7 @@ async function getExistingCheckoutCustomer(authUserId: string, email: string | n
     .from("customers")
     .select("id")
     .eq("auth_user_id", authUserId)
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -361,6 +389,7 @@ async function getExistingCheckoutCustomer(authUserId: string, email: string | n
     .select("id")
     .eq("email", email)
     .is("auth_user_id", null)
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -450,6 +479,7 @@ async function getOrCreateCheckoutAddress({
     .select("id,full_name,phone,country,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default")
     .eq("customer_id", customerId)
     .order("is_default", { ascending: false })
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(100)
     .returns<CheckoutAddressRow[]>();
@@ -633,18 +663,6 @@ function getAdminOrderUrl(orderId: string) {
   }
 
   return `${appUrl.replace(/\/$/, "")}/admin/orders/${orderId}`;
-}
-
-function buildShippingArea({
-  governorate,
-  wilayat,
-  area
-}: {
-  governorate: string;
-  wilayat: string;
-  area: string;
-}) {
-  return [governorate, wilayat, area].filter(Boolean).join(" - ");
 }
 
 async function cleanupFailedOrder({
