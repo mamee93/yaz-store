@@ -9,6 +9,42 @@ import { createClient } from "@/lib/supabase/server";
 import { customerDeliveryProfileSchema } from "@/validations/customer-profile-schema";
 import type { Database } from "@/types/database";
 
+type CustomerIdentity = Pick<
+  Database["public"]["Tables"]["customers"]["Row"],
+  "id" | "auth_user_id" | "email" | "whatsapp_number" | "updated_at" | "created_at"
+>;
+
+type SavedCustomerProfile = Pick<
+  Database["public"]["Tables"]["customers"]["Row"],
+  | "id"
+  | "auth_user_id"
+  | "full_name"
+  | "phone"
+  | "email"
+  | "whatsapp_number"
+  | "governorate"
+  | "wilayat"
+  | "area"
+  | "detailed_address"
+  | "updated_at"
+>;
+
+type SyncedAddress = Pick<
+  Database["public"]["Tables"]["addresses"]["Row"],
+  | "id"
+  | "customer_id"
+  | "full_name"
+  | "phone"
+  | "governorate"
+  | "wilayat"
+  | "city"
+  | "area"
+  | "address_line_1"
+  | "delivery_notes"
+  | "is_default"
+  | "updated_at"
+>;
+
 const customerFullNameSchema = z.string().trim().min(2, "الاسم الكامل مطلوب.").max(120, "الاسم طويل جدًا.");
 
 const customerNotesSchema = z.object({
@@ -211,7 +247,8 @@ export async function updateCustomerDeliveryProfileAction(formData: FormData) {
       governorate: parsed.data.governorate,
       wilayat: parsed.data.wilayat,
       area: parsed.data.area,
-      detailedAddress: parsed.data.detailed_address
+      detailedAddress: parsed.data.detailed_address,
+      deliveryNotes: null
     });
   } else {
     console.error("Customer delivery profile save failed:", {
@@ -270,57 +307,71 @@ export async function updateCustomerProfileAction(formData: FormData) {
 
   const email = user.email?.trim().toLowerCase() ?? null;
   const supabase = createAdminClient();
-  const lookupQuery = email
-    ? `auth_user_id.eq.${user.id},and(email.eq.${email},auth_user_id.is.null)`
-    : `auth_user_id.eq.${user.id}`;
-  const { data: existingCustomer, error: lookupError } = await supabase
+  const { data: authCustomer, error: authLookupError } = await supabase
     .from("customers")
-    .select("id")
-    .or(lookupQuery)
+    .select("id,auth_user_id,email,whatsapp_number,updated_at,created_at")
+    .eq("auth_user_id", user.id)
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle()
-    .returns<{ id: string } | null>();
+    .returns<CustomerIdentity | null>();
 
-  if (lookupError) {
-    console.error("Customer profile lookup failed", lookupError);
+  if (authLookupError) {
+    console.error("Customer profile lookup failed", authLookupError);
     redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر التحقق من ملف العميل.")}`);
   }
+
+  const { data: emailCustomer, error: emailLookupError } =
+    !authCustomer && email
+      ? await supabase
+          .from("customers")
+          .select("id,auth_user_id,email,whatsapp_number,updated_at,created_at")
+          .eq("email", email)
+          .is("auth_user_id", null)
+          .order("updated_at", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+          .returns<CustomerIdentity | null>()
+      : { data: null, error: null };
+
+  if (emailLookupError) {
+    console.error("Customer profile email fallback lookup failed", emailLookupError);
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر التحقق من ملف العميل.")}`);
+  }
+
+  const existingCustomer = authCustomer ?? emailCustomer;
 
   const payload = {
     auth_user_id: user.id,
     full_name: parsedName.data,
     email,
     phone: parsedDelivery.data.phone,
+    whatsapp_number: getOptionalFormText(formData.get("whatsapp_number")) ?? existingCustomer?.whatsapp_number ?? null,
     governorate: parsedDelivery.data.governorate,
     wilayat: parsedDelivery.data.wilayat,
     area: parsedDelivery.data.area,
-    detailed_address: parsedDelivery.data.detailed_address
-  };
+    detailed_address: parsedDelivery.data.detailed_address,
+    updated_at: new Date().toISOString()
+  } satisfies Database["public"]["Tables"]["customers"]["Update"];
 
-  const { error } = existingCustomer
-    ? await supabase.from("customers").update(payload as never).eq("id", existingCustomer.id)
-    : await supabase.from("customers").insert(payload as never);
+  const savedCustomer = existingCustomer
+    ? await updateCustomerProfileRow(existingCustomer.id, payload)
+    : await insertCustomerProfileRow(payload);
 
-  if (error) {
-    console.error("Customer profile save failed", error);
-    redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر حفظ بياناتك. حاول مرة أخرى.")}`);
-  }
+  const savedAddress = await upsertPrimaryCheckoutAddress({
+    customerId: savedCustomer.id,
+    fullName: savedCustomer.full_name,
+    phone: savedCustomer.phone,
+    governorate: savedCustomer.governorate,
+    wilayat: savedCustomer.wilayat,
+    area: savedCustomer.area,
+    detailedAddress: savedCustomer.detailed_address,
+    deliveryNotes: getOptionalFormText(formData.get("delivery_notes"))
+  });
 
-  const savedCustomerId =
-    existingCustomer?.id ?? (await findCustomerIdForAuthUser(user.id, email));
-
-  if (savedCustomerId) {
-    await upsertPrimaryCheckoutAddress({
-      customerId: savedCustomerId,
-      fullName: parsedName.data,
-      phone: parsedDelivery.data.phone,
-      governorate: parsedDelivery.data.governorate,
-      wilayat: parsedDelivery.data.wilayat,
-      area: parsedDelivery.data.area,
-      detailedAddress: parsedDelivery.data.detailed_address
-    });
-  }
+  assertProfileSaveMatchesInput(savedCustomer, savedAddress, parsedDelivery.data);
 
   revalidatePath("/account");
   revalidatePath("/account/profile");
@@ -337,27 +388,46 @@ function normalizeNullableText(value: FormDataEntryValue | null) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-async function findCustomerIdForAuthUser(authUserId: string, email: string | null) {
+async function updateCustomerProfileRow(
+  customerId: string,
+  payload: Database["public"]["Tables"]["customers"]["Update"]
+) {
   const supabase = createAdminClient();
-  const query = email
-    ? `auth_user_id.eq.${authUserId},and(email.eq.${email},auth_user_id.is.null)`
-    : `auth_user_id.eq.${authUserId}`;
-  const { data, error } = await supabase
+  const { data, error, count } = await supabase
     .from("customers")
-    .select("id")
-    .or(query)
-    .order("updated_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(1)
+    .update(payload as never, { count: "exact" })
+    .eq("id", customerId)
+    .select(
+      "id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,updated_at"
+    )
     .maybeSingle()
-    .returns<{ id: string } | null>();
+    .returns<SavedCustomerProfile | null>();
 
-  if (error) {
-    console.error("Customer id lookup after profile save failed", error);
-    return null;
+  if (error || !data || count === 0) {
+    console.error("Customer profile update failed", { error, count, customerId });
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر حفظ بياناتك. لم يتم تحديث سجل العميل.")}`);
   }
 
-  return data?.id ?? null;
+  return data;
+}
+
+async function insertCustomerProfileRow(payload: Database["public"]["Tables"]["customers"]["Update"]) {
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("customers")
+    .insert(payload as Database["public"]["Tables"]["customers"]["Insert"] as never)
+    .select(
+      "id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,updated_at"
+    )
+    .single()
+    .returns<SavedCustomerProfile>();
+
+  if (error || !data) {
+    console.error("Customer profile insert failed", error);
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر حفظ بياناتك. لم يتم إنشاء سجل العميل.")}`);
+  }
+
+  return data;
 }
 
 async function upsertPrimaryCheckoutAddress({
@@ -367,7 +437,8 @@ async function upsertPrimaryCheckoutAddress({
   governorate,
   wilayat,
   area,
-  detailedAddress
+  detailedAddress,
+  deliveryNotes
 }: {
   customerId: string;
   fullName: string;
@@ -376,25 +447,32 @@ async function upsertPrimaryCheckoutAddress({
   wilayat: string | null;
   area: string | null;
   detailedAddress: string | null;
+  deliveryNotes: string | null;
 }) {
   if (!governorate || !wilayat || !detailedAddress) {
-    return;
+    console.error("Checkout address save skipped because required address fields are missing", {
+      customerId,
+      hasGovernorate: Boolean(governorate),
+      hasWilayat: Boolean(wilayat),
+      hasDetailedAddress: Boolean(detailedAddress)
+    });
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر حفظ العنوان. أكمل المحافظة والولاية والعنوان التفصيلي.")}`);
   }
 
   const supabase = createAdminClient();
   const { data: addresses, error: lookupError } = await supabase
     .from("addresses")
-    .select("id,is_default")
+    .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default,updated_at")
     .eq("customer_id", customerId)
     .order("is_default", { ascending: false })
     .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(1)
-    .returns<Array<Pick<Database["public"]["Tables"]["addresses"]["Row"], "id" | "is_default">>>();
+    .returns<SyncedAddress[]>();
 
   if (lookupError) {
     console.error("Checkout address lookup after customer save failed", lookupError);
-    return;
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تم حفظ العميل، لكن تعذر قراءة عنوان التوصيل.")}`);
   }
 
   const address = addresses?.[0] ?? null;
@@ -407,30 +485,95 @@ async function upsertPrimaryCheckoutAddress({
     city: wilayat,
     area,
     address_line_1: detailedAddress,
-    is_default: true
+    delivery_notes: deliveryNotes ?? address?.delivery_notes ?? null,
+    is_default: true,
+    updated_at: new Date().toISOString()
   } satisfies Database["public"]["Tables"]["addresses"]["Update"];
 
   if (address) {
-    const { error } = await supabase
+    const { data, error, count } = await supabase
       .from("addresses")
-      .update(payload as never)
-      .eq("id", address.id);
+      .update(payload as never, { count: "exact" })
+      .eq("id", address.id)
+      .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default,updated_at")
+      .maybeSingle()
+      .returns<SyncedAddress | null>();
 
-    if (error) {
-      console.error("Checkout address update after customer save failed", error);
+    if (error || !data || count === 0) {
+      console.error("Checkout address update after customer save failed", { error, count, addressId: address.id });
+      redirect(`/account/profile?status=error&message=${encodeURIComponent("تم حفظ العميل، لكن تعذر تحديث عنوان التوصيل.")}`);
     }
 
-    return;
+    return data;
   }
 
-  const { error } = await supabase.from("addresses").insert({
-    customer_id: customerId,
-    ...payload
-  } as Database["public"]["Tables"]["addresses"]["Insert"] as never);
+  const { data, error } = await supabase
+    .from("addresses")
+    .insert({
+      customer_id: customerId,
+      ...payload
+    } as Database["public"]["Tables"]["addresses"]["Insert"] as never)
+    .select("id,customer_id,full_name,phone,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default,updated_at")
+    .single()
+    .returns<SyncedAddress>();
 
-  if (error) {
+  if (error || !data) {
     console.error("Checkout address insert after customer save failed", error);
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تم حفظ العميل، لكن تعذر إنشاء عنوان التوصيل.")}`);
   }
+
+  return data;
+}
+
+function assertProfileSaveMatchesInput(
+  customer: SavedCustomerProfile,
+  address: SyncedAddress,
+  input: {
+    phone: string;
+    governorate: string | null;
+    wilayat: string | null;
+    area: string | null;
+    detailed_address: string | null;
+  }
+) {
+  const customerMatches =
+    normalizeCompare(customer.phone) === normalizeCompare(input.phone) &&
+    normalizeCompare(customer.governorate) === normalizeCompare(input.governorate) &&
+    normalizeCompare(customer.wilayat) === normalizeCompare(input.wilayat) &&
+    normalizeCompare(customer.area) === normalizeCompare(input.area) &&
+    normalizeCompare(customer.detailed_address) === normalizeCompare(input.detailed_address);
+
+  const addressMatches =
+    address.customer_id === customer.id &&
+    normalizeCompare(address.phone) === normalizeCompare(input.phone) &&
+    normalizeCompare(address.governorate) === normalizeCompare(input.governorate) &&
+    normalizeCompare(address.wilayat) === normalizeCompare(input.wilayat) &&
+    normalizeCompare(address.city) === normalizeCompare(input.wilayat) &&
+    normalizeCompare(address.area) === normalizeCompare(input.area) &&
+    normalizeCompare(address.address_line_1) === normalizeCompare(input.detailed_address);
+
+  if (!customerMatches || !addressMatches) {
+    console.error("Customer profile save verification failed", {
+      customerId: customer.id,
+      addressId: address.id,
+      customerMatches,
+      addressMatches
+    });
+    redirect(`/account/profile?status=error&message=${encodeURIComponent("تعذر تأكيد حفظ بيانات التوصيل. حاول مرة أخرى.")}`);
+  }
+}
+
+function getOptionalFormText(value: FormDataEntryValue | null) {
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeCompare(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ");
 }
 
 function normalizeOmanPhone(value: FormDataEntryValue | null) {
