@@ -3,9 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { logAdminActivity } from "@/features/admin-audit/log";
-import { requireAdminRole } from "@/features/auth/queries";
+import { getCurrentCustomer, requireAdminRole } from "@/features/auth/queries";
+import { getCustomerIdsForAccount } from "@/features/customers/queries";
 import { notifyInventoryStatusTransition } from "@/features/inventory/notifications";
-import { createReturnRequestedNotification } from "@/features/notifications/actions";
+import {
+  createCustomerRefundNotification,
+  createReturnRequestedNotification
+} from "@/features/notifications/actions";
 import {
   calculateReturnLine,
   clampRefundTotal,
@@ -394,8 +398,64 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
     }
   });
 
+  await createCustomerRefundNotification({
+    customerId: detail.customer_id,
+    returnId,
+    orderId: data.order_id,
+    orderNumber: detail.order.order_number,
+    amount: refundAmount
+  });
+
   revalidateReturnPaths(data.order_id, returnId);
   redirectAdminReturn(returnId, "success", "تم تسجيل الاسترداد اليدوي.");
+}
+
+export async function confirmRefundReceivedAction(returnId: string) {
+  const customer = await getCurrentCustomer();
+
+  if (!customer) {
+    redirect("/login");
+  }
+
+  const customerIds = await getCustomerIdsForAccount({
+    id: customer.id,
+    email: customer.email
+  });
+
+  if (customerIds.length === 0) {
+    redirect(`/account/returns/${returnId}?status=error&message=تعذر تأكيد الاسترداد.`);
+  }
+
+  const now = new Date().toISOString();
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("order_returns")
+    .update({ customer_refund_confirmed_at: now } as never)
+    .eq("id", returnId)
+    .in("customer_id", customerIds)
+    .eq("status", "refunded")
+    .is("customer_refund_confirmed_at", null)
+    .select("id,order_id")
+    .maybeSingle()
+    .returns<{ id: string; order_id: string } | null>();
+
+  if (error || !data) {
+    redirect(`/account/returns/${returnId}?status=error&message=تعذر تأكيد الاسترداد أو تم تأكيده مسبقًا.`);
+  }
+
+  await logReturnOrderEvent({
+    orderId: data.order_id,
+    eventType: "order.refund_confirmed_by_customer",
+    title: "تأكيد استلام الاسترداد",
+    description: "تم تأكيد استلام مبلغ الاسترداد من العميل.",
+    metadata: {
+      return_id: returnId,
+      customer_refund_confirmed_at: now
+    }
+  });
+
+  revalidateReturnPaths(data.order_id, returnId);
+  redirect(`/account/returns/${returnId}?status=success&message=تم تأكيد استلام المبلغ`);
 }
 
 export async function closeReturnAction(returnId: string, formData: FormData) {

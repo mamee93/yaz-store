@@ -15,7 +15,7 @@ export async function getAdminNotifications(limit?: number) {
   const supabase = await createClient();
   let query = supabase
     .from("notifications")
-    .select("id,type,title,message,entity_type,entity_id,metadata,is_read,created_at")
+    .select("id,type,title,message,entity_type,entity_id,customer_id,link,metadata,is_read,created_at")
     .order("created_at", { ascending: false });
 
   if (limit) {

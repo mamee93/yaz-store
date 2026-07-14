@@ -387,6 +387,7 @@ export type Database = {
           received_at: string | null;
           refunded_at: string | null;
           stock_restored_at: string | null;
+          customer_refund_confirmed_at: string | null;
           approved_by_admin_id: string | null;
           rejected_by_admin_id: string | null;
           received_by_admin_id: string | null;
@@ -484,6 +485,8 @@ export type Database = {
           message: string;
           entity_type: string | null;
           entity_id: string | null;
+          customer_id: string | null;
+          link: string | null;
           metadata: Json;
           is_read: boolean;
           created_at: string;

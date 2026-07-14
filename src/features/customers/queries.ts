@@ -1,4 +1,5 @@
 import { getCurrentCustomer, requireAdmin } from "@/features/auth/queries";
+import { isActiveCustomerOrderStatus } from "@/features/orders/customer-labels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
@@ -16,6 +17,8 @@ export type CustomerOrderRow = {
   payment_method: Database["public"]["Enums"]["payment_method"];
   payment_status: Database["public"]["Enums"]["payment_status"];
   total_omr: number;
+  completed_at?: string | null;
+  updated_at?: string | null;
   created_at: string;
 };
 
@@ -35,6 +38,33 @@ export type AdminCustomerDetail = AdminCustomerListItem & {
 export type CustomerAccount = {
   profile: Awaited<ReturnType<typeof getCurrentCustomer>>;
   orders: CustomerOrderRow[];
+};
+
+export type CustomerNotificationItem = Pick<
+  Database["public"]["Tables"]["notifications"]["Row"],
+  "id" | "type" | "title" | "message" | "link" | "is_read" | "created_at"
+>;
+
+export type CustomerReturnOverviewItem = Database["public"]["Tables"]["order_returns"]["Row"] & {
+  order_number: string;
+  expected_refund_omr: number;
+};
+
+export type CustomerAccountOverview = {
+  profile: Awaited<ReturnType<typeof getCurrentCustomer>>;
+  kpis: {
+    totalOrders: number;
+    activeOrders: number;
+    completedOrders: number;
+    totalPurchasesOmr: number;
+    returnsCount: number;
+    unreadNotifications: number;
+  };
+  recentOrders: CustomerOrderRow[];
+  allOrders: CustomerOrderRow[];
+  recentReturns: CustomerReturnOverviewItem[];
+  recentNotifications: CustomerNotificationItem[];
+  deliveryProfileComplete: boolean;
 };
 
 export async function getCustomerAccount() {
@@ -66,7 +96,7 @@ export async function getCustomerAccount() {
 
   const { data, error } = await supabase
     .from("orders")
-    .select("id,order_number,invoice_number,customer_id,status,payment_method,payment_status,total_omr,created_at")
+    .select("id,order_number,invoice_number,customer_id,status,payment_method,payment_status,total_omr,completed_at,updated_at,created_at")
     .in("customer_id", customerIds)
     .order("created_at", { ascending: false })
     .limit(8)
@@ -84,6 +114,78 @@ export async function getCustomerAccount() {
     profile,
     orders: await attachInvoiceIds(data ?? [])
   };
+}
+
+export async function getCustomerAccountOverview() {
+  const profile = await getCurrentCustomer();
+
+  if (!profile) {
+    return null;
+  }
+
+  const customerIds = await getCustomerIdsForAccount({
+    id: profile.id,
+    email: profile.email
+  });
+
+  if (customerIds.length === 0) {
+    return {
+      profile,
+      kpis: {
+        totalOrders: 0,
+        activeOrders: 0,
+        completedOrders: 0,
+        totalPurchasesOmr: 0,
+        returnsCount: 0,
+        unreadNotifications: 0
+      },
+      recentOrders: [],
+      allOrders: [],
+      recentReturns: [],
+      recentNotifications: [],
+      deliveryProfileComplete: isDeliveryProfileComplete(profile)
+    } satisfies CustomerAccountOverview;
+  }
+
+  const supabase = createAdminClient();
+  const [{ data: orders, error: ordersError }, returns, { data: notifications, error: notificationsError }] =
+    await Promise.all([
+      supabase
+        .from("orders")
+        .select("id,order_number,invoice_number,customer_id,status,payment_method,payment_status,total_omr,completed_at,updated_at,created_at")
+        .in("customer_id", customerIds)
+        .order("created_at", { ascending: false })
+        .limit(100)
+        .returns<CustomerOrderRow[]>(),
+      getCustomerReturnOverviewItems(customerIds, 30),
+      supabase
+        .from("notifications")
+        .select("id,type,title,message,link,is_read,created_at")
+        .in("customer_id", customerIds)
+        .order("created_at", { ascending: false })
+        .limit(100)
+        .returns<CustomerNotificationItem[]>()
+    ]);
+
+  if (ordersError) {
+    console.error("Failed to read customer overview orders", ordersError);
+  }
+
+  if (notificationsError) {
+    console.error("Failed to read customer overview notifications", notificationsError);
+  }
+
+  const allOrders = await attachInvoiceIds(orders ?? []);
+
+  return {
+    profile,
+    kpis: buildCustomerKpis(allOrders, returns, notifications ?? []),
+    recentOrders: allOrders.slice(0, 5),
+    allOrders,
+    recentReturns: returns.slice(0, 3),
+    recentNotifications: notifications ?? [],
+    deliveryProfileComplete: isDeliveryProfileComplete(profile)
+  } satisfies CustomerAccountOverview;
 }
 
 export async function getCustomerIdsForAccount({ id, email }: { id: string | null; email: string | null }) {
@@ -138,6 +240,84 @@ async function attachInvoiceIds(orders: CustomerOrderRow[]) {
     ...order,
     invoice_id: invoiceIdByOrderId.get(order.id) ?? null
   }));
+}
+
+async function getCustomerReturnOverviewItems(customerIds: string[], limit: number) {
+  if (customerIds.length === 0) {
+    return [];
+  }
+
+  const supabase = createAdminClient();
+  const { data: returns, error: returnsError } = await supabase
+    .from("order_returns")
+    .select("id,order_id,customer_id,status,return_type,reason,customer_note,admin_note,requested_at,approved_at,rejected_at,received_at,refunded_at,customer_refund_confirmed_at,approved_by_admin_id,rejected_by_admin_id,received_by_admin_id,refunded_by_admin_id,refund_method,refund_amount_omr,refund_reference,created_at,updated_at")
+    .in("customer_id", customerIds)
+    .order("requested_at", { ascending: false })
+    .limit(limit)
+    .returns<Database["public"]["Tables"]["order_returns"]["Row"][]>();
+
+  if (returnsError || !returns || returns.length === 0) {
+    if (returnsError) {
+      console.error("Failed to read customer overview returns", returnsError);
+    }
+
+    return [];
+  }
+
+  const orderIds = [...new Set(returns.map((item) => item.order_id))];
+  const returnIds = returns.map((item) => item.id);
+  const [{ data: orders }, { data: items }] = await Promise.all([
+    supabase
+      .from("orders")
+      .select("id,order_number")
+      .in("id", orderIds)
+      .returns<Array<{ id: string; order_number: string }>>(),
+    supabase
+      .from("order_return_items")
+      .select("return_id,line_refund_omr")
+      .in("return_id", returnIds)
+      .returns<Array<{ return_id: string; line_refund_omr: number }>>()
+  ]);
+
+  const orderNumberById = new Map((orders ?? []).map((order) => [order.id, order.order_number]));
+  const totalsByReturnId = new Map<string, number>();
+
+  for (const item of items ?? []) {
+    totalsByReturnId.set(item.return_id, (totalsByReturnId.get(item.return_id) ?? 0) + Number(item.line_refund_omr));
+  }
+
+  return returns.map((item) => ({
+    ...item,
+    order_number: orderNumberById.get(item.order_id) ?? "-",
+    expected_refund_omr: totalsByReturnId.get(item.id) ?? Number(item.refund_amount_omr ?? 0)
+  })) satisfies CustomerReturnOverviewItem[];
+}
+
+function buildCustomerKpis(
+  orders: CustomerOrderRow[],
+  returns: CustomerReturnOverviewItem[],
+  notifications: CustomerNotificationItem[]
+) {
+  return {
+    totalOrders: orders.length,
+    activeOrders: orders.filter((order) => isActiveCustomerOrderStatus(order.status)).length,
+    completedOrders: orders.filter((order) => order.status === "completed").length,
+    totalPurchasesOmr: orders
+      .filter((order) => order.status === "completed")
+      .reduce((total, order) => total + Number(order.total_omr), 0),
+    returnsCount: returns.length,
+    unreadNotifications: notifications.filter((notification) => !notification.is_read).length
+  };
+}
+
+function isDeliveryProfileComplete(profile: CustomerAccountOverview["profile"]) {
+  return Boolean(
+    profile?.full_name?.trim() &&
+      profile.phone?.trim() &&
+      profile.governorate?.trim() &&
+      profile.wilayat?.trim() &&
+      profile.detailed_address?.trim()
+  );
 }
 
 export async function getAdminCustomers(search?: string) {
