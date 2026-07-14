@@ -138,7 +138,8 @@ function AccountNav() {
     ["طلباتي", "/account/orders"],
     ["بياناتي", "/account/profile"],
     ["المرتجعات", "/account#returns"],
-    ["الإشعارات", "/account/notifications"]
+    ["الإشعارات", "/account/notifications"],
+    ["سياسة الاسترجاع", "/returns-policy"]
   ] as const;
 
   return (

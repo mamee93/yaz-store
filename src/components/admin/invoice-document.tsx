@@ -138,6 +138,7 @@ export function InvoiceDocument({ invoice, showActions = true }: InvoiceDocument
           <div className="rounded-oud bg-oud-beige/25 p-4 text-sm leading-7 text-oud-muted">
             <p className="font-semibold text-oud-brown">ملاحظات الفاتورة</p>
             <p className="mt-1">تم إصدار هذه الفاتورة إلكترونيا من لوحة إدارة عود ياز.</p>
+            <p className="mt-1">رسوم التوصيل غير قابلة للاسترداد إلا في الحالات التي تعتمدها إدارة المتجر.</p>
           </div>
           <div className="space-y-3 text-sm">
             <SummaryRow label="المجموع الفرعي" value={<Price value={order.subtotal_omr} />} />

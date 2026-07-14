@@ -11,6 +11,7 @@ import {
   createReturnRequestedNotification
 } from "@/features/notifications/actions";
 import {
+  calculateRefundableAmount,
   calculateReturnLine,
   clampRefundTotal,
   getReturnEligibility,
@@ -349,16 +350,34 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
   const requestedAmount = Number(String(formData.get("refund_amount_omr") ?? "0"));
   const refundReference = String(formData.get("refund_reference") ?? "").trim();
   const adminNote = String(formData.get("admin_note") ?? "").trim();
+  const includeDeliveryFee = formData.get("include_delivery_fee_in_refund") === "on";
 
   if (!refundMethods.includes(refundMethod)) {
     redirectAdminReturn(returnId, "error", "يرجى اختيار طريقة الاسترداد.");
   }
 
-  const maxRefund = clampRefundTotal(detail.expected_refund_omr, detail.order.total_omr);
+  const productRefundSummary = calculateRefundableAmount({
+    productRefundOmr: detail.expected_refund_omr,
+    deliveryFeeOmr: detail.order.delivery_fee_omr,
+    orderTotalOmr: detail.order.total_omr
+  });
+  const maxRefundSummary = calculateRefundableAmount({
+    productRefundOmr: detail.expected_refund_omr,
+    deliveryFeeOmr: detail.order.delivery_fee_omr,
+    orderTotalOmr: detail.order.total_omr,
+    includeDeliveryFee
+  });
+  const maxRefund = maxRefundSummary.totalRefundOmr;
   const refundAmount = roundOmr(requestedAmount);
+  const productRefundPortion = roundOmr(Math.min(refundAmount, productRefundSummary.productRefundOmr));
+  const deliveryFeeRefundPortion = roundOmr(Math.max(refundAmount - productRefundPortion, 0));
 
   if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount > maxRefund) {
     redirectAdminReturn(returnId, "error", "مبلغ الاسترداد غير صالح أو يتجاوز المبلغ المسموح.");
+  }
+
+  if (deliveryFeeRefundPortion > 0 && !includeDeliveryFee) {
+    redirectAdminReturn(returnId, "error", "رسوم التوصيل لا تضاف إلى الاسترداد إلا بموافقة الإدارة.");
   }
 
   const now = new Date().toISOString();
@@ -394,9 +413,43 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
     description: "تم تسجيل استرداد يدوي للمرتجع.",
     metadata: {
       refund_method: refundMethod,
-      refund_amount_omr: refundAmount
+      product_refund_omr: productRefundPortion,
+      delivery_fee_refund_omr: deliveryFeeRefundPortion,
+      total_refund_omr: refundAmount,
+      refund_amount_omr: refundAmount,
+      include_delivery_fee_in_refund: deliveryFeeRefundPortion > 0,
+      delivery_fee_refund_reason: deliveryFeeRefundPortion > 0 ? "management_exception" : null
     }
   });
+
+  if (deliveryFeeRefundPortion > 0) {
+    const deliveryFeeMetadata = {
+      return_id: returnId,
+      order_id: data.order_id,
+      product_refund_omr: productRefundPortion,
+      delivery_fee_refund_omr: deliveryFeeRefundPortion,
+      total_refund_omr: refundAmount,
+      delivery_fee_refund_reason: "management_exception"
+    };
+
+    await logReturnOrderEvent({
+      orderId: data.order_id,
+      admin,
+      eventType: "refund.delivery_fee_included",
+      title: "تم تضمين رسوم التوصيل في الاسترداد",
+      description: "تم تضمين رسوم التوصيل في الاسترداد بقرار من إدارة المتجر.",
+      metadata: deliveryFeeMetadata
+    });
+
+    await logAdminActivity({
+      admin,
+      action: "refund.delivery_fee_included",
+      entityType: "order_return",
+      entityId: returnId,
+      description: "تم تضمين رسوم التوصيل في الاسترداد",
+      metadata: deliveryFeeMetadata
+    });
+  }
 
   await createCustomerRefundNotification({
     customerId: detail.customer_id,

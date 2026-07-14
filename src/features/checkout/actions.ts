@@ -189,22 +189,18 @@ export async function createCheckoutOrderAction(formData: FormData) {
 
   let customerId: string | null = null;
   let addressId: string | null = null;
+  let createdAddressId: string | null = null;
   let orderId: string | null = null;
   let shouldCleanupCustomer = false;
 
   try {
-    const saveDeliveryProfile = formData.get("saveDeliveryProfile") === "1";
+    const saveAddressToAccount = formData.get("saveAddressToAccount") === "1";
     const accountUser = await getCheckoutAuthUser();
     const existingCustomer = accountUser
       ? await getExistingCheckoutCustomer(accountUser.id, accountUser.email)
       : null;
     const customer = existingCustomer
-      ? await updateCheckoutCustomer(
-          existingCustomer.id,
-          accountUser?.id ?? null,
-          checkout,
-          saveDeliveryProfile
-        )
+      ? await linkCheckoutCustomerToAuthUser(existingCustomer.id, accountUser?.id ?? null)
       : await createCheckoutCustomer({
           authUserId: accountUser?.id ?? null,
           checkout
@@ -213,30 +209,14 @@ export async function createCheckoutOrderAction(formData: FormData) {
     customerId = customer.id;
     shouldCleanupCustomer = !existingCustomer;
 
-    const { data: address, error: addressError } = await supabase
-      .from("addresses")
-      .insert({
-        customer_id: customer.id,
-        full_name: checkout.fullName,
-        phone: checkout.phone,
-        country: checkout.country,
-        governorate: checkout.governorate,
-        wilayat: checkout.wilayat,
-        city: checkout.wilayat,
-        area: checkout.area,
-        address_line_1: checkout.addressLine,
-        delivery_notes: checkout.deliveryNotes,
-        is_default: true
-      } as Database["public"]["Tables"]["addresses"]["Insert"] as never)
-      .select("id")
-      .single()
-      .returns<CheckoutInsertIds>();
-
-    if (addressError || !address) {
-      throw new Error("address");
-    }
+    const address = await getOrCreateCheckoutAddress({
+      customerId: customer.id,
+      checkout,
+      saveAddressToAccount
+    });
 
     addressId = address.id;
+    createdAddressId = address.created ? address.id : null;
 
     const { data: order, error: orderError } = await supabase
       .from("orders")
@@ -339,7 +319,7 @@ export async function createCheckoutOrderAction(formData: FormData) {
       await incrementCouponUsage(couponResult.coupon.id, couponResult.coupon.used_count);
     }
   } catch {
-    await cleanupFailedOrder({ customerId, addressId, orderId, shouldCleanupCustomer });
+    await cleanupFailedOrder({ customerId, addressId: createdAddressId, orderId, shouldCleanupCustomer });
     redirectWithCheckoutError("تعذر إنشاء الطلب. حاول مرة أخرى.");
   }
 
@@ -421,38 +401,122 @@ async function createCheckoutCustomer({
   return data;
 }
 
-async function updateCheckoutCustomer(
-  customerId: string,
-  authUserId: string | null,
-  checkout: CheckoutCustomerInput,
-  saveDeliveryProfile: boolean
-) {
-  if (!saveDeliveryProfile) {
+async function linkCheckoutCustomerToAuthUser(customerId: string, authUserId: string | null) {
+  if (!authUserId) {
     return { id: customerId };
   }
 
   const supabase = createAdminClient();
-  const updatePayload: Database["public"]["Tables"]["customers"]["Update"] = {
-    auth_user_id: authUserId,
-    full_name: checkout.fullName,
-    phone: checkout.phone,
-    whatsapp_number: checkout.whatsapp,
-    email: checkout.email,
-    governorate: checkout.governorate,
-    wilayat: checkout.wilayat,
-    area: checkout.area,
-    detailed_address: checkout.addressLine
-  };
   const { error } = await supabase
     .from("customers")
-    .update(updatePayload as never)
-    .eq("id", customerId);
+    .update({ auth_user_id: authUserId } as never)
+    .eq("id", customerId)
+    .is("auth_user_id", null);
 
   if (error) {
-    throw new Error("customer_update");
+    throw new Error("customer_link");
   }
 
   return { id: customerId };
+}
+
+type CheckoutAddressRow = Pick<
+  Database["public"]["Tables"]["addresses"]["Row"],
+  | "id"
+  | "full_name"
+  | "phone"
+  | "country"
+  | "governorate"
+  | "wilayat"
+  | "city"
+  | "area"
+  | "address_line_1"
+  | "delivery_notes"
+  | "is_default"
+>;
+
+async function getOrCreateCheckoutAddress({
+  customerId,
+  checkout,
+  saveAddressToAccount
+}: {
+  customerId: string;
+  checkout: CheckoutCustomerInput;
+  saveAddressToAccount: boolean;
+}) {
+  const supabase = createAdminClient();
+  const { data: addresses, error: addressesError } = await supabase
+    .from("addresses")
+    .select("id,full_name,phone,country,governorate,wilayat,city,area,address_line_1,delivery_notes,is_default")
+    .eq("customer_id", customerId)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(100)
+    .returns<CheckoutAddressRow[]>();
+
+  if (addressesError) {
+    throw new Error("address_lookup");
+  }
+
+  const hasDefaultAddress = (addresses ?? []).some((address) => address.is_default);
+  const matchingAddress = (addresses ?? []).find((address) => isSameCheckoutAddress(address, checkout));
+
+  if (matchingAddress) {
+    if (saveAddressToAccount && !hasDefaultAddress && !matchingAddress.is_default) {
+      const { error: defaultError } = await supabase
+        .from("addresses")
+        .update({ is_default: true } as never)
+        .eq("id", matchingAddress.id);
+
+      if (defaultError) {
+        throw new Error("address_default");
+      }
+    }
+
+    return { id: matchingAddress.id, created: false };
+  }
+
+  const { data: address, error: addressError } = await supabase
+    .from("addresses")
+    .insert({
+      customer_id: customerId,
+      full_name: checkout.fullName,
+      phone: checkout.phone,
+      country: checkout.country,
+      governorate: checkout.governorate,
+      wilayat: checkout.wilayat,
+      city: checkout.wilayat,
+      area: checkout.area,
+      address_line_1: checkout.addressLine,
+      delivery_notes: checkout.deliveryNotes,
+      is_default: saveAddressToAccount && !hasDefaultAddress
+    } as Database["public"]["Tables"]["addresses"]["Insert"] as never)
+    .select("id")
+    .single()
+    .returns<CheckoutInsertIds>();
+
+  if (addressError || !address) {
+    throw new Error("address");
+  }
+
+  return { id: address.id, created: true };
+}
+
+function isSameCheckoutAddress(address: CheckoutAddressRow, checkout: CheckoutCustomerInput) {
+  return (
+    normalizeAddressValue(address.full_name) === normalizeAddressValue(checkout.fullName) &&
+    normalizeAddressValue(address.phone) === normalizeAddressValue(checkout.phone) &&
+    normalizeAddressValue(address.country) === normalizeAddressValue(checkout.country) &&
+    normalizeAddressValue(address.governorate) === normalizeAddressValue(checkout.governorate) &&
+    normalizeAddressValue(address.wilayat) === normalizeAddressValue(checkout.wilayat) &&
+    normalizeAddressValue(address.area) === normalizeAddressValue(checkout.area) &&
+    normalizeAddressValue(address.address_line_1) === normalizeAddressValue(checkout.addressLine) &&
+    normalizeAddressValue(address.delivery_notes) === normalizeAddressValue(checkout.deliveryNotes)
+  );
+}
+
+function normalizeAddressValue(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ");
 }
 
 async function getCheckoutStoreSettings(): Promise<CheckoutStoreSettings> {

@@ -32,6 +32,7 @@ const orderEventLabels: Record<string, string> = {
   "order.return_rejected": "رفض المرتجع",
   "order.return_received": "استلام المرتجع",
   "order.refunded": "تسجيل استرداد",
+  "refund.delivery_fee_included": "تم تضمين رسوم التوصيل في الاسترداد",
   "order.refund_confirmed_by_customer": "تأكيد استلام الاسترداد",
   "order.return_closed": "إغلاق المرتجع"
 };

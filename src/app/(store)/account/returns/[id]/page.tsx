@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { ArrowRight } from "lucide-react";
 import { Badge, Button, Card, Container, Heading, Price, Section } from "@/components/ui";
 import { confirmRefundReceivedAction } from "@/features/returns/actions";
+import { calculateRefundableAmount, roundOmr } from "@/features/returns/calculations";
 import { getCustomerReturnById } from "@/features/returns/queries";
 import { getReturnStatusVariant, refundMethodLabels, returnStatusLabels, returnTypeLabels } from "@/features/returns/labels";
 
@@ -26,6 +28,13 @@ export default async function CustomerReturnDetailPage({
 
   const canConfirmRefund =
     returnRequest.status === "refunded" && !returnRequest.customer_refund_confirmed_at;
+  const productRefundSummary = calculateRefundableAmount({
+    productRefundOmr: returnRequest.expected_refund_omr,
+    deliveryFeeOmr: returnRequest.order.delivery_fee_omr,
+    orderTotalOmr: returnRequest.order.total_omr
+  });
+  const finalRefundAmount = returnRequest.refund_amount_omr ?? productRefundSummary.totalRefundOmr;
+  const deliveryFeeRefunded = roundOmr(Math.max(finalRefundAmount - productRefundSummary.productRefundOmr, 0));
 
   return (
     <main dir="rtl">
@@ -86,6 +95,22 @@ export default async function CustomerReturnDetailPage({
 
             <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               <Info
+                label="قيمة المنتجات المرتجعة"
+                value={<Price value={productRefundSummary.productRefundOmr} />}
+              />
+              <Info
+                label="رسوم التوصيل الأصلية"
+                value={<Price value={returnRequest.order.delivery_fee_omr} />}
+              />
+              <Info
+                label="هل تم استرداد رسوم التوصيل؟"
+                value={deliveryFeeRefunded > 0 ? "نعم" : "لا"}
+              />
+              <Info
+                label="مبلغ الاسترداد النهائي"
+                value={<Price value={finalRefundAmount} />}
+              />
+              <Info
                 label="مبلغ الاسترداد"
                 value={<Price value={returnRequest.refund_amount_omr ?? 0} />}
               />
@@ -115,6 +140,12 @@ export default async function CustomerReturnDetailPage({
                 }
               />
             </div>
+
+            {deliveryFeeRefunded <= 0 ? (
+              <p className="mt-5 rounded-oud border border-oud-brown/10 bg-oud-beige/25 p-4 text-sm leading-7 text-oud-muted">
+                رسوم التوصيل غير مشمولة في مبلغ الاسترداد.
+              </p>
+            ) : null}
 
             {canConfirmRefund ? (
               <form action={confirmRefundReceivedAction.bind(null, returnRequest.id)} className="mt-5">
@@ -155,7 +186,7 @@ export default async function CustomerReturnDetailPage({
   );
 }
 
-function Info({ label, value, dir }: { label: string; value: React.ReactNode; dir?: "rtl" | "ltr" }) {
+function Info({ label, value, dir }: { label: string; value: ReactNode; dir?: "rtl" | "ltr" }) {
   return (
     <div className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-4">
       <p className="text-xs font-semibold text-oud-muted">{label}</p>

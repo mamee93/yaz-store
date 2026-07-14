@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import type { ReactNode } from "react";
 import { ArrowRight, RotateCcw } from "lucide-react";
 import { Button, Card, Container, EmptyState, Heading, Input, Price, Section, Select, Textarea } from "@/components/ui";
-import { calculateRefundUnit } from "@/features/returns/calculations";
+import { calculateRefundableAmount, calculateRefundUnit } from "@/features/returns/calculations";
 import { requestOrderReturnAction } from "@/features/returns/actions";
 import { getCustomerReturnOrder } from "@/features/returns/queries";
 import { returnReasonLabels, returnTypeLabels } from "@/features/returns/labels";
@@ -23,6 +24,15 @@ export default async function ReturnRequestPage({ params, searchParams }: Return
   }
 
   const action = requestOrderReturnAction.bind(null, id);
+  const fullProductRefund = data.order.order_items.reduce(
+    (total, item) => total + calculateRefundUnit(data.order, item) * item.quantity,
+    0
+  );
+  const refundSummary = calculateRefundableAmount({
+    productRefundOmr: fullProductRefund,
+    deliveryFeeOmr: data.order.delivery_fee_omr,
+    orderTotalOmr: data.order.total_omr
+  });
 
   return (
     <main dir="rtl">
@@ -53,6 +63,24 @@ export default async function ReturnRequestPage({ params, searchParams }: Return
             />
           ) : (
             <form action={action} className="space-y-5">
+              <Card className="p-5 shadow-none">
+                <h2 className="font-display text-2xl font-bold text-oud-brown">ملخص الاسترداد المتوقع</h2>
+                <p className="mt-2 text-sm leading-7 text-oud-muted">
+                  يتم احتساب مبلغ الاسترداد من قيمة المنتجات المرتجعة فقط. رسوم التوصيل غير قابلة للاسترداد إلا إذا قررت إدارة المتجر خلاف ذلك بعد المراجعة.
+                </p>
+                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                  <RefundInfo label="قيمة المنتجات القابلة للاسترداد" value={<Price value={refundSummary.productRefundOmr} />} />
+                  <RefundInfo label="رسوم التوصيل الأصلية" value={<Price value={data.order.delivery_fee_omr} />} />
+                  <RefundInfo label="المبلغ المتوقع" value={<Price value={refundSummary.totalRefundOmr} />} />
+                </div>
+                <Link
+                  href="/returns-policy"
+                  className="mt-4 inline-flex text-sm font-semibold text-oud-brown underline-offset-4 hover:underline"
+                >
+                  قراءة سياسة الاسترجاع والاستبدال
+                </Link>
+              </Card>
+
               <Card className="grid gap-4 p-5 shadow-none sm:grid-cols-2">
                 <Select name="return_type" label="نوع الطلب" required defaultValue="partial_return">
                   {Object.entries(returnTypeLabels).map(([value, label]) => (
@@ -147,6 +175,15 @@ function StatusMessage({ status, message }: { status?: string; message?: string 
       }
     >
       {message}
+    </div>
+  );
+}
+
+function RefundInfo({ label, value }: { label: string; value: ReactNode }) {
+  return (
+    <div className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-4">
+      <p className="text-xs font-semibold text-oud-muted">{label}</p>
+      <div className="mt-2 font-semibold text-oud-brown">{value}</div>
     </div>
   );
 }

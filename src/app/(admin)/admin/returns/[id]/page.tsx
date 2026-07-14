@@ -17,6 +17,7 @@ import {
   returnStatusLabels,
   returnTypeLabels
 } from "@/features/returns/labels";
+import { calculateRefundableAmount } from "@/features/returns/calculations";
 import { getAdminReturnById } from "@/features/returns/queries";
 
 export const dynamic = "force-dynamic";
@@ -47,6 +48,19 @@ export default async function AdminReturnDetailPage({
     (admin.role === "owner" || admin.role === "manager") &&
     returnRequest.status === "received" &&
     returnRequest.return_type === "exchange";
+  const productRefundSummary = calculateRefundableAmount({
+    productRefundOmr: returnRequest.expected_refund_omr,
+    deliveryFeeOmr: returnRequest.order.delivery_fee_omr,
+    orderTotalOmr: returnRequest.order.total_omr
+  });
+  const withDeliveryRefundSummary = calculateRefundableAmount({
+    productRefundOmr: returnRequest.expected_refund_omr,
+    deliveryFeeOmr: returnRequest.order.delivery_fee_omr,
+    orderTotalOmr: returnRequest.order.total_omr,
+    includeDeliveryFee: true
+  });
+  const finalRefundAmount = returnRequest.refund_amount_omr ?? productRefundSummary.totalRefundOmr;
+  const deliveryFeeRefunded = Math.max(finalRefundAmount - productRefundSummary.productRefundOmr, 0);
 
   return (
     <div className="space-y-6">
@@ -101,6 +115,37 @@ export default async function AdminReturnDetailPage({
                 <p className="mt-1">{returnRequest.admin_note}</p>
               </div>
             ) : null}
+          </Card>
+
+          <Card className="p-5 shadow-none">
+            <h2 className="font-display text-2xl font-bold text-oud-brown">تفاصيل مبلغ الاسترداد</h2>
+            <p className="mt-1 text-sm leading-7 text-oud-muted">
+              يتم احتساب الاسترداد من قيمة المنتجات المرتجعة فقط. رسوم التوصيل لا تضاف إلا بقرار واضح من الإدارة.
+            </p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <Info
+                label="قيمة المنتجات القابلة للاسترداد"
+                value={`${productRefundSummary.productRefundOmr.toFixed(3)} ر.ع`}
+                dir="ltr"
+              />
+              <Info
+                label="رسوم التوصيل الأصلية"
+                value={`${Number(returnRequest.order.delivery_fee_omr).toFixed(3)} ر.ع`}
+                dir="ltr"
+              />
+              <Info
+                label="الحد الأقصى بدون التوصيل"
+                value={`${productRefundSummary.totalRefundOmr.toFixed(3)} ر.ع`}
+                dir="ltr"
+              />
+              <Info
+                label="الحد الأقصى مع التوصيل"
+                value={`${withDeliveryRefundSummary.totalRefundOmr.toFixed(3)} ر.ع`}
+                dir="ltr"
+              />
+              <Info label="المبلغ المطلوب استرداده" value={`${finalRefundAmount.toFixed(3)} ر.ع`} dir="ltr" />
+              <Info label="رسوم التوصيل مشمولة؟" value={deliveryFeeRefunded > 0 ? "نعم" : "لا"} />
+            </div>
           </Card>
 
           <Card className="overflow-hidden shadow-none">
@@ -184,11 +229,24 @@ export default async function AdminReturnDetailPage({
                   type="number"
                   step="0.001"
                   min="0"
-                  max={returnRequest.expected_refund_omr}
-                  defaultValue={returnRequest.expected_refund_omr.toFixed(3)}
+                  max={withDeliveryRefundSummary.totalRefundOmr}
+                  defaultValue={productRefundSummary.totalRefundOmr.toFixed(3)}
                   dir="ltr"
                   required
                 />
+                <label className="flex gap-3 rounded-oud border border-oud-brown/10 bg-oud-beige/20 p-3 text-sm leading-7 text-oud-brown">
+                  <input
+                    type="checkbox"
+                    name="include_delivery_fee_in_refund"
+                    className="mt-1 size-4 rounded border-oud-brown/30 text-oud-brown"
+                  />
+                  <span>
+                    <span className="block font-semibold">استرداد رسوم التوصيل أيضًا</span>
+                    <span className="block text-oud-muted">
+                      خيار إداري فقط. عند تفعيله يمكن أن يصل السقف إلى قيمة المنتجات مع رسوم التوصيل دون تجاوز إجمالي الطلب.
+                    </span>
+                  </span>
+                </label>
                 <Input name="refund_reference" label="مرجع الاسترداد" dir="ltr" />
                 <Textarea name="admin_note" label="ملاحظة داخلية" />
                 <Button type="submit" className="w-full" leftIcon={<ReceiptText className="size-4" />}>

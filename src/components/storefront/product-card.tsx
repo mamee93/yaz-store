@@ -1,5 +1,8 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Badge, Card, Price } from "@/components/ui";
 import { AddToCartButton } from "./add-to-cart-button";
 import type { StoreProduct } from "./static-catalog";
@@ -9,9 +12,15 @@ type ProductCardProps = {
 };
 
 export function ProductCard({ product }: ProductCardProps) {
+  const router = useRouter();
+  const productHref = `/products/${product.slug}`;
+
   return (
-    <Card className="group h-full overflow-hidden bg-white transition duration-300 hover:-translate-y-1 hover:border-oud-gold/45 hover:shadow-gold">
-      <Link href={`/products/${product.slug}`} className="block">
+    <Card
+      className="group h-full cursor-pointer overflow-hidden bg-white transition duration-300 hover:-translate-y-1 hover:border-oud-gold/45 hover:shadow-gold"
+      onClick={() => router.push(productHref)}
+    >
+      <Link href={productHref} className="block">
         <div
           className="relative aspect-[3/4] overflow-hidden border-b border-oud-brown/10"
           style={{ background: product.imageTone }}
@@ -36,7 +45,7 @@ export function ProductCard({ product }: ProductCardProps) {
       </Link>
 
       <div className="space-y-3 p-4">
-        <Link href={`/products/${product.slug}`} className="block space-y-2">
+        <Link href={productHref} className="block space-y-2">
           <p className="text-xs font-bold text-oud-gold">{product.categoryName}</p>
           <h3 className="line-clamp-2 min-h-12 break-words text-sm font-bold leading-6 text-oud-brown sm:text-base">
             {product.name}

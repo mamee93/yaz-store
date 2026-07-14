@@ -13,13 +13,13 @@ import {
   type CouponValidationState
 } from "@/features/coupons/actions";
 import { createCheckoutOrderAction } from "@/features/checkout/actions";
-import type { CustomerProfile } from "@/features/auth/queries";
+import type { CheckoutPrefill } from "@/features/checkout/queries";
 import type { StoreSettingsRead } from "@/features/store-settings/queries";
 import { useCart } from "@/hooks/use-cart";
 
 type CheckoutClientProps = {
   settings: StoreSettingsRead | null;
-  customer: CustomerProfile | null;
+  prefill: CheckoutPrefill;
 };
 
 const initialCouponState: CouponValidationState = {
@@ -32,7 +32,7 @@ const initialCouponState: CouponValidationState = {
   cartSignature: ""
 };
 
-export function CheckoutClient({ settings, customer }: CheckoutClientProps) {
+export function CheckoutClient({ settings, prefill }: CheckoutClientProps) {
   const searchParams = useSearchParams();
   const { isHydrated, items } = useCart();
   const [selectedDeliveryMethod, setSelectedDeliveryMethod] =
@@ -73,7 +73,9 @@ export function CheckoutClient({ settings, customer }: CheckoutClientProps) {
 
       <Section className="pt-2">
         <Container>
-          {hasItems && settings?.is_store_open === false ? (
+          {!isHydrated ? (
+            <CheckoutLoadingState />
+          ) : hasItems && settings?.is_store_open === false ? (
             <ClosedStoreState message={getEffectiveMaintenanceMessage(settings)} />
           ) : hasItems ? (
             <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start xl:gap-6">
@@ -83,7 +85,7 @@ export function CheckoutClient({ settings, customer }: CheckoutClientProps) {
                 selectedDeliveryMethod={selectedDeliveryMethod}
                 onDeliveryMethodChange={setSelectedDeliveryMethod}
                 couponCode={activeCouponState.code}
-                customer={customer}
+                prefill={prefill}
               />
 
               <aside className="min-w-0 space-y-4 lg:sticky lg:top-24">
@@ -119,6 +121,32 @@ export function CheckoutClient({ settings, customer }: CheckoutClientProps) {
         </Container>
       </Section>
     </main>
+  );
+}
+
+function CheckoutLoadingState() {
+  return (
+    <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_24rem] lg:items-start xl:gap-6">
+      <div className="space-y-5">
+        {[0, 1, 2].map((item) => (
+          <div key={item} className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-5 shadow-soft">
+            <div className="h-6 w-44 animate-pulse rounded bg-oud-beige/60" />
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <div className="h-11 animate-pulse rounded-oud bg-oud-beige/45" />
+              <div className="h-11 animate-pulse rounded-oud bg-oud-beige/45" />
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="rounded-oud border border-oud-brown/10 bg-oud-pearl p-5 shadow-soft">
+        <div className="h-6 w-32 animate-pulse rounded bg-oud-beige/60" />
+        <div className="mt-5 space-y-3">
+          <div className="h-4 animate-pulse rounded bg-oud-beige/45" />
+          <div className="h-4 animate-pulse rounded bg-oud-beige/45" />
+          <div className="h-10 animate-pulse rounded bg-oud-beige/60" />
+        </div>
+      </div>
+    </div>
   );
 }
 

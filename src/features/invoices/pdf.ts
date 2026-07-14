@@ -76,6 +76,7 @@ function buildContent(invoice: AdminInvoice) {
   lines.push(text(summaryX, 134, 10, `Discount: ${formatMoney(order.discount_omr)}`));
   lines.push(text(summaryX, 116, 10, `Tax: ${formatMoney(order.tax_omr)}`));
   lines.push(text(summaryX, 92, 14, `Grand total: ${formatMoney(order.total_omr)}`, true));
+  lines.push(text(42, 112, 8, "Delivery fees are non-refundable unless approved by store management."));
   lines.push(text(42, 92, 9, "Thank you for choosing Oud Yaz."));
 
   return lines.join("\n");

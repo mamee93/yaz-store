@@ -29,6 +29,7 @@ const auditActionLabels: Record<string, string> = {
   "return.receive": "استلام مرتجع",
   "return.close": "إغلاق مرتجع",
   "refund.create": "تسجيل استرداد",
+  "refund.delivery_fee_included": "تم تضمين رسوم التوصيل في الاسترداد",
   "banner.delete": "حذف بنر",
   "product.delete": "حذف منتج",
   "product.disable": "تعطيل منتج",

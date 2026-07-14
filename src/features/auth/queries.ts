@@ -94,6 +94,7 @@ export type CustomerProfile = Pick<
   | "full_name"
   | "phone"
   | "email"
+  | "whatsapp_number"
   | "governorate"
   | "wilayat"
   | "area"
@@ -121,7 +122,7 @@ export async function getCurrentCustomer() {
   const admin = createAdminClient();
   const { data: byAuthUser, error: authLookupError } = await admin
     .from("customers")
-    .select("id,auth_user_id,full_name,phone,email,governorate,wilayat,area,detailed_address,created_at")
+    .select("id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,created_at")
     .eq("auth_user_id", user.id)
     .order("created_at", { ascending: false })
     .limit(1)
@@ -135,6 +136,7 @@ export async function getCurrentCustomer() {
       full_name: user.user_metadata?.full_name ?? user.email ?? "عميل عود ياز",
       phone: user.user_metadata?.phone ?? "",
       email: user.email ?? null,
+      whatsapp_number: user.user_metadata?.whatsapp_number ?? null,
       governorate: null,
       wilayat: null,
       area: null,
@@ -150,7 +152,7 @@ export async function getCurrentCustomer() {
   const { data: unlinkedByEmail } = user.email
     ? await admin
         .from("customers")
-        .select("id,auth_user_id,full_name,phone,email,governorate,wilayat,area,detailed_address,created_at")
+        .select("id,auth_user_id,full_name,phone,email,whatsapp_number,governorate,wilayat,area,detailed_address,created_at")
         .eq("email", user.email)
         .is("auth_user_id", null)
         .order("created_at", { ascending: false })
@@ -166,6 +168,7 @@ export async function getCurrentCustomer() {
       full_name: user.user_metadata?.full_name ?? user.email ?? "عميل عود ياز",
       phone: user.user_metadata?.phone ?? "",
       email: user.email ?? null,
+      whatsapp_number: user.user_metadata?.whatsapp_number ?? null,
       governorate: null,
       wilayat: null,
       area: null,

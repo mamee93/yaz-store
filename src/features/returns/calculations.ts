@@ -78,6 +78,32 @@ export function calculateReturnLine(order: ReturnableOrder, item: ReturnableOrde
   };
 }
 
+export function calculateRefundableAmount({
+  productRefundOmr,
+  deliveryFeeOmr,
+  orderTotalOmr,
+  includeDeliveryFee = false
+}: {
+  productRefundOmr: number;
+  deliveryFeeOmr: number;
+  orderTotalOmr: number;
+  includeDeliveryFee?: boolean;
+}) {
+  // Product refunds are already net of proportional order discount via calculateRefundUnit.
+  const productRefund = roundOmr(Math.max(Number(productRefundOmr), 0));
+  const deliveryFeeRefund = includeDeliveryFee
+    ? roundOmr(Math.min(Math.max(Number(deliveryFeeOmr), 0), Math.max(Number(orderTotalOmr) - productRefund, 0)))
+    : 0;
+  const totalRefund = clampRefundTotal(productRefund + deliveryFeeRefund, orderTotalOmr);
+
+  return {
+    productRefundOmr: productRefund,
+    deliveryFeeRefundOmr: deliveryFeeRefund,
+    totalRefundOmr: totalRefund,
+    includesDeliveryFee: deliveryFeeRefund > 0
+  };
+}
+
 export function clampRefundTotal(value: number, orderTotal: number) {
   return roundOmr(Math.min(Math.max(value, 0), Math.max(orderTotal, 0)));
 }

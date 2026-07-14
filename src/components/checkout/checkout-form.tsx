@@ -11,7 +11,7 @@ import {
 } from "@/constants/oman-delivery";
 import { cn } from "@/utils/cn";
 import { PaymentMethodSelector } from "./payment-method-selector";
-import type { CustomerProfile } from "@/features/auth/queries";
+import type { CheckoutPrefill } from "@/features/checkout/queries";
 import type { CartItem } from "@/stores/cart-store";
 
 type CheckoutFormProps = {
@@ -20,7 +20,7 @@ type CheckoutFormProps = {
   selectedDeliveryMethod: DeliveryMethod;
   onDeliveryMethodChange: (method: DeliveryMethod) => void;
   couponCode?: string | null;
-  customer?: CustomerProfile | null;
+  prefill: CheckoutPrefill;
 };
 
 const defaultGovernorate = OMAN_GOVERNORATES[0]?.name ?? "مسقط";
@@ -31,16 +31,52 @@ export function CheckoutForm({
   selectedDeliveryMethod,
   onDeliveryMethodChange,
   couponCode,
-  customer
+  prefill
 }: CheckoutFormProps) {
-  const initialGovernorate = customer?.governorate || defaultGovernorate;
+  const customer = prefill.customer;
+  const savedAddress = prefill.address;
+  const initialFullName = customer?.full_name ?? savedAddress?.full_name ?? "";
+  const initialPhone = customer?.phone ?? savedAddress?.phone ?? "";
+  const initialWhatsapp = customer?.whatsapp_number ?? "";
+  const initialEmail = customer?.email ?? "";
+  const initialGovernorate = savedAddress?.governorate || customer?.governorate || defaultGovernorate;
+  const initialWilayats = getGovernorateWilayats(initialGovernorate);
+  const initialWilayat =
+    savedAddress?.wilayat && initialWilayats.includes(savedAddress.wilayat)
+      ? savedAddress.wilayat
+      : customer?.wilayat && initialWilayats.includes(customer.wilayat)
+        ? customer.wilayat
+        : (initialWilayats[0] ?? "");
+  const initialArea = savedAddress?.area ?? customer?.area ?? "";
+  const initialAddressLine = savedAddress?.address_line_1 ?? customer?.detailed_address ?? "";
+  const initialDeliveryNotes = savedAddress?.delivery_notes ?? "";
   const [governorate, setGovernorate] = useState<string>(initialGovernorate);
   const wilayats = useMemo(() => getGovernorateWilayats(governorate), [governorate]);
-  const [wilayat, setWilayat] = useState<string>(
-    customer?.wilayat && wilayats.includes(customer.wilayat)
-      ? customer.wilayat
-      : (wilayats[0] ?? "")
+  const [wilayat, setWilayat] = useState<string>(initialWilayat);
+  const [area, setArea] = useState(initialArea);
+  const [addressLine, setAddressLine] = useState(initialAddressLine);
+  const [deliveryNotes, setDeliveryNotes] = useState(initialDeliveryNotes);
+  const initialAddressSnapshot = useMemo(
+    () =>
+      normalizeAddressSnapshot({
+        governorate: initialGovernorate,
+        wilayat: initialWilayat,
+        area: initialArea,
+        addressLine: initialAddressLine,
+        deliveryNotes: initialDeliveryNotes
+      }),
+    [initialAddressLine, initialArea, initialDeliveryNotes, initialGovernorate, initialWilayat]
   );
+  const currentAddressSnapshot = normalizeAddressSnapshot({
+    governorate,
+    wilayat,
+    area,
+    addressLine,
+    deliveryNotes
+  });
+  const addressChanged = currentAddressSnapshot !== initialAddressSnapshot;
+  const hasEnteredNewAddress = Boolean(area.trim() || addressLine.trim() || deliveryNotes.trim());
+  const showSaveAddressOption = Boolean(customer?.id && addressChanged && (prefill.hasSavedAddress || hasEnteredNewAddress));
 
   function handleGovernorateChange(value: string) {
     const nextWilayats = getGovernorateWilayats(value);
@@ -66,7 +102,7 @@ export function CheckoutForm({
             label="الاسم الكامل"
             name="fullName"
             placeholder="مثال: أحمد الهاشمي"
-            defaultValue={customer?.full_name ?? ""}
+            defaultValue={initialFullName}
             required
           />
           <Input
@@ -74,7 +110,7 @@ export function CheckoutForm({
             name="phone"
             type="tel"
             placeholder="9XXXXXXX"
-            defaultValue={customer?.phone ?? ""}
+            defaultValue={initialPhone}
             required
           />
           <Input
@@ -82,13 +118,14 @@ export function CheckoutForm({
             name="whatsapp"
             type="tel"
             placeholder="إن كان مختلفا عن الهاتف"
+            defaultValue={initialWhatsapp}
           />
           <Input
             label="البريد الإلكتروني اختياري"
             name="email"
             type="email"
             placeholder="name@example.com"
-            defaultValue={customer?.email ?? ""}
+            defaultValue={initialEmail}
             dir="ltr"
           />
         </div>
@@ -128,31 +165,35 @@ export function CheckoutForm({
             label="المنطقة"
             name="area"
             placeholder="مثال: الخوير"
-            defaultValue={customer?.area ?? ""}
+            value={area}
+            onChange={(event) => setArea(event.target.value)}
             required
           />
           <Input
             label="العنوان التفصيلي"
             name="addressLine"
             placeholder="رقم المبنى، الشارع، أقرب معلم"
-            defaultValue={customer?.detailed_address ?? ""}
+            value={addressLine}
+            onChange={(event) => setAddressLine(event.target.value)}
             required
           />
           <Textarea
             label="ملاحظات التوصيل"
             name="deliveryNotes"
             placeholder="وقت مناسب للتواصل أو تفاصيل إضافية"
+            value={deliveryNotes}
+            onChange={(event) => setDeliveryNotes(event.target.value)}
             className="md:col-span-2"
           />
-          {customer?.id ? (
+          {showSaveAddressOption ? (
             <label className="flex items-start gap-2 rounded-oud border border-oud-brown/10 bg-oud-beige/20 px-3 py-3 text-sm leading-6 text-oud-brown md:col-span-2">
               <input
-                name="saveDeliveryProfile"
+                name="saveAddressToAccount"
                 type="checkbox"
                 value="1"
                 className="mt-1 size-4 accent-oud-brown"
               />
-              حفظ هذه البيانات كعنوان التوصيل الافتراضي في حسابي
+              حفظ هذا العنوان في حسابي
             </label>
           ) : null}
         </div>
@@ -206,4 +247,22 @@ export function CheckoutForm({
       <PaymentMethodSelector />
     </form>
   );
+}
+
+function normalizeAddressSnapshot({
+  governorate,
+  wilayat,
+  area,
+  addressLine,
+  deliveryNotes
+}: {
+  governorate: string;
+  wilayat: string;
+  area: string;
+  addressLine: string;
+  deliveryNotes: string;
+}) {
+  return [governorate, wilayat, area, addressLine, deliveryNotes]
+    .map((value) => value.trim().replace(/\s+/g, " "))
+    .join("|");
 }

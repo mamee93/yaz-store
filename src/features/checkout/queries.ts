@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getCurrentCustomer, type CustomerProfile } from "@/features/auth/queries";
 import type { Database, Json } from "@/types/database";
 
 export type CheckoutOrderRead = {
@@ -28,6 +29,70 @@ export type CheckoutOrderRead = {
     product_image_url_snapshot: string | null;
   }[];
 };
+
+export type CheckoutPrefillAddress = Pick<
+  Database["public"]["Tables"]["addresses"]["Row"],
+  | "id"
+  | "full_name"
+  | "phone"
+  | "country"
+  | "governorate"
+  | "wilayat"
+  | "area"
+  | "address_line_1"
+  | "delivery_notes"
+  | "is_default"
+  | "created_at"
+>;
+
+export type CheckoutPrefill = {
+  customer: CustomerProfile | null;
+  address: CheckoutPrefillAddress | null;
+  hasDefaultAddress: boolean;
+  hasSavedAddress: boolean;
+};
+
+export async function getCheckoutPrefill(): Promise<CheckoutPrefill> {
+  const customer = await getCurrentCustomer();
+
+  if (!customer?.id) {
+    return {
+      customer,
+      address: null,
+      hasDefaultAddress: false,
+      hasSavedAddress: false
+    };
+  }
+
+  const supabase = createAdminClient();
+  const { data, error } = await supabase
+    .from("addresses")
+    .select("id,full_name,phone,country,governorate,wilayat,area,address_line_1,delivery_notes,is_default,created_at")
+    .eq("customer_id", customer.id)
+    .order("is_default", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .returns<CheckoutPrefillAddress[]>();
+
+  if (error) {
+    console.error("Failed to read checkout prefill address", error);
+    return {
+      customer,
+      address: null,
+      hasDefaultAddress: false,
+      hasSavedAddress: false
+    };
+  }
+
+  const address = data?.[0] ?? null;
+
+  return {
+    customer,
+    address,
+    hasDefaultAddress: Boolean(address?.is_default),
+    hasSavedAddress: Boolean(address)
+  };
+}
 
 export async function getOrderByOrderNumber(orderNumber: string) {
   const supabase = createAdminClient();

@@ -88,6 +88,9 @@ export function ThermalInvoiceDocument({ invoice, width }: ThermalInvoiceDocumen
       </div>
 
       <Divider />
+      <p className="text-center text-[10px] leading-5">
+        رسوم التوصيل غير قابلة للاسترداد إلا في الحالات التي تعتمدها إدارة المتجر.
+      </p>
       <p className="pb-2 text-center font-bold">شكرا لاختياركم عود ياز</p>
     </section>
   );
