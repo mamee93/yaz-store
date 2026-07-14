@@ -378,6 +378,7 @@ export type Database = {
           customer_id: string | null;
           status: "requested" | "approved" | "rejected" | "received" | "refunded" | "closed";
           return_type: "full_return" | "partial_return" | "exchange" | "refund_only";
+          resolution_type: "refund" | "replacement_same_product" | "wrong_item_correction" | null;
           reason: string;
           customer_note: string | null;
           admin_note: string | null;
@@ -394,6 +395,8 @@ export type Database = {
           refunded_by_admin_id: string | null;
           refund_method: "cash" | "bank_transfer" | "original_payment_method" | "store_credit" | "manual" | null;
           refund_amount_omr: number | null;
+          product_refund_omr: number | null;
+          delivery_fee_refund_omr: number | null;
           refund_reference: string | null;
           created_at: string;
           updated_at: string;
@@ -416,6 +419,12 @@ export type Database = {
           unit_refund_omr: number;
           line_refund_omr: number;
           return_to_stock: boolean;
+          returned_item_condition: "sellable" | "damaged" | "opened" | "not_returned";
+          replacement_product_id: string | null;
+          replacement_quantity: number;
+          replacement_status: "pending" | "approved" | "shipped" | "delivered" | null;
+          replacement_stock_deducted_at: string | null;
+          replacement_stock_deducted_by_admin_id: string | null;
           created_at: string;
         };
         Insert: Partial<Database["public"]["Tables"]["order_return_items"]["Row"]> & {

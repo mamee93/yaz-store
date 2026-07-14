@@ -5,6 +5,14 @@ export type ReturnType = Database["public"]["Tables"]["order_returns"]["Row"]["r
 export type RefundMethod = NonNullable<
   Database["public"]["Tables"]["order_returns"]["Row"]["refund_method"]
 >;
+export type ReturnResolutionType = NonNullable<
+  Database["public"]["Tables"]["order_returns"]["Row"]["resolution_type"]
+>;
+export type ReturnedItemCondition =
+  Database["public"]["Tables"]["order_return_items"]["Row"]["returned_item_condition"];
+export type ReplacementStatus = NonNullable<
+  Database["public"]["Tables"]["order_return_items"]["Row"]["replacement_status"]
+>;
 
 export const RETURN_WINDOW_DAYS = 7;
 
@@ -30,6 +38,26 @@ export const refundMethodLabels: Record<RefundMethod, string> = {
   original_payment_method: "طريقة الدفع الأصلية",
   store_credit: "رصيد في المتجر",
   manual: "يدوي"
+};
+
+export const returnResolutionTypeLabels: Record<ReturnResolutionType, string> = {
+  refund: "استرداد المبلغ",
+  replacement_same_product: "استبدال بنفس المنتج",
+  wrong_item_correction: "تصحيح منتج تم توصيله بالخطأ"
+};
+
+export const returnedItemConditionLabels: Record<ReturnedItemCondition, string> = {
+  sellable: "سليم وقابل لإعادة البيع",
+  damaged: "تالف وغير قابل للبيع",
+  opened: "مفتوح وغير قابل للبيع",
+  not_returned: "لا يتطلب إعادة المنتج"
+};
+
+export const replacementStatusLabels: Record<ReplacementStatus, string> = {
+  pending: "بانتظار الإرسال",
+  approved: "معتمد",
+  shipped: "تم الشحن",
+  delivered: "تم التسليم"
 };
 
 export const returnReasonLabels = [

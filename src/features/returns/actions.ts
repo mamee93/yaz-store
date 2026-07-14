@@ -18,7 +18,13 @@ import {
   roundOmr
 } from "@/features/returns/calculations";
 import { getAdminReturnById, getCustomerReturnOrder } from "@/features/returns/queries";
-import type { RefundMethod, ReturnType as OrderReturnType } from "@/features/returns/labels";
+import type {
+  RefundMethod,
+  ReplacementStatus,
+  ReturnedItemCondition,
+  ReturnResolutionType,
+  ReturnType as OrderReturnType
+} from "@/features/returns/labels";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { AdminProfile } from "@/features/auth/queries";
 import type { Database, Json } from "@/types/database";
@@ -43,6 +49,18 @@ type ReturnInventoryMovementRow = {
 };
 
 const returnTypes: OrderReturnType[] = ["full_return", "partial_return", "exchange", "refund_only"];
+const resolutionTypes: ReturnResolutionType[] = [
+  "refund",
+  "replacement_same_product",
+  "wrong_item_correction"
+];
+const returnedItemConditions: ReturnedItemCondition[] = [
+  "sellable",
+  "damaged",
+  "opened",
+  "not_returned"
+];
+const replacementStatuses: ReplacementStatus[] = ["pending", "approved", "shipped", "delivered"];
 const refundMethods: RefundMethod[] = [
   "cash",
   "bank_transfer",
@@ -183,12 +201,47 @@ export async function approveReturnAction(returnId: string, formData: FormData) 
   }
 
   const adminNote = String(formData.get("admin_note") ?? "").trim();
+  const detail = await getAdminReturnById(returnId);
+
+  if (!detail) {
+    redirectAdminReturn(returnId, "error", "المرتجع غير موجود.");
+  }
+
+  if (detail.status !== "requested") {
+    redirectAdminReturn(returnId, "error", "تمت معالجة هذا المرتجع مسبقًا.");
+  }
+
+  const resolutionType = normalizeResolutionType(formData.get("resolution_type"), detail.return_type);
+  const itemDecisions = detail.items.map((item) => {
+    const condition = normalizeReturnedItemCondition(formData.get(`condition_${item.id}`));
+    const replacementProductId = normalizeNullableUuid(formData.get(`replacement_product_id_${item.id}`));
+    const replacementQuantity = normalizeReplacementQuantity(
+      formData.get(`replacement_quantity_${item.id}`),
+      resolutionType === "refund" ? 0 : item.quantity
+    );
+    const replacementStatus = normalizeReplacementStatus(formData.get(`replacement_status_${item.id}`));
+
+    if (resolutionType !== "refund" && replacementQuantity > 0 && !replacementProductId) {
+      redirectAdminReturn(returnId, "error", "حدد المنتج البديل لكل عنصر استبدال.");
+    }
+
+    return {
+      item,
+      condition,
+      replacementProductId,
+      replacementQuantity,
+      replacementStatus: resolutionType === "refund" ? null : replacementStatus,
+      returnToStock: condition === "sellable"
+    };
+  });
+
   const now = new Date().toISOString();
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from("order_returns")
     .update({
       status: "approved",
+      resolution_type: resolutionType,
       approved_at: now,
       approved_by_admin_id: admin.id,
       admin_note: adminNote || null
@@ -203,15 +256,53 @@ export async function approveReturnAction(returnId: string, formData: FormData) 
     redirectAdminReturn(returnId, "error", "تعذر اعتماد المرتجع أو تمت معالجته مسبقًا.");
   }
 
-  await writeAdminReturnLogs({
-    admin,
-    orderId: data.order_id,
-    returnId,
-    eventType: "order.return_approved",
-    auditAction: "return.approve",
-    title: "اعتماد المرتجع",
-    description: "تم اعتماد طلب الإرجاع."
-  });
+  for (const decision of itemDecisions) {
+    const replacementStockDeducted = await updateReturnItemResolution({
+      admin,
+      orderId: data.order_id,
+      returnId,
+      itemId: decision.item.id,
+      condition: decision.condition,
+      returnToStock: decision.returnToStock,
+      replacementProductId: decision.replacementProductId,
+      replacementQuantity: decision.replacementQuantity,
+      replacementStatus: decision.replacementStatus,
+      shouldDeductReplacementStock: resolutionType !== "refund" && decision.replacementQuantity > 0
+    });
+
+    decision.item.replacement_stock_deducted_at = replacementStockDeducted
+      ? new Date().toISOString()
+      : decision.item.replacement_stock_deducted_at;
+  }
+
+  await safeAfterReturnMutation("approveReturnAction.logs", () =>
+    writeAdminReturnLogs({
+      admin,
+      orderId: data.order_id,
+      returnId,
+      eventType: "order.return_approved",
+      auditAction: "return.approve",
+      title: "اعتماد المرتجع",
+      description: "تم اعتماد طلب الإرجاع.",
+      metadata: {
+        resolution_type: resolutionType,
+        return_reason: detail.reason,
+        processed_by: admin.id,
+        product_refund_omr: resolutionType === "refund" ? detail.expected_refund_omr : 0,
+        delivery_fee_refund_omr: 0,
+        total_refund_omr: resolutionType === "refund" ? detail.expected_refund_omr : 0,
+        items: itemDecisions.map((decision) => ({
+          return_item_id: decision.item.id,
+          order_item_id: decision.item.order_item_id,
+          returned_item_condition: decision.condition,
+          restocked_quantity: decision.returnToStock ? decision.item.quantity : 0,
+          replacement_product_id: decision.replacementProductId,
+          replacement_quantity: decision.replacementQuantity,
+          replacement_stock_deducted: Boolean(decision.item.replacement_stock_deducted_at)
+        }))
+      }
+    })
+  );
 
   revalidateReturnPaths(data.order_id, returnId);
   redirectAdminReturn(returnId, "success", "تم اعتماد المرتجع.");
@@ -311,19 +402,24 @@ export async function receiveReturnAction(returnId: string) {
     redirectAdminReturn(returnId, "error", "تعذر تسجيل استلام المرتجع.");
   }
 
-  await writeAdminReturnLogs({
-    admin,
-    orderId: result.order_id,
-    returnId,
-    eventType: "order.return_received",
-    auditAction: "return.receive",
-    title: "استلام المرتجع",
-    description: "تم تسجيل استلام المنتجات المرتجعة."
-  });
+  const receivedOrderId = result.order_id;
+  await safeAfterReturnMutation("receiveReturnAction.logs", () =>
+    writeAdminReturnLogs({
+      admin,
+      orderId: receivedOrderId,
+      returnId,
+      eventType: "order.return_received",
+      auditAction: "return.receive",
+      title: "استلام المرتجع",
+      description: "تم تسجيل استلام المنتجات المرتجعة."
+    })
+  );
 
-  await notifyReturnStockMovements(returnId);
+  await safeAfterReturnMutation("receiveReturnAction.inventoryNotifications", () =>
+    notifyReturnStockMovements(returnId)
+  );
 
-  revalidateReturnPaths(result.order_id, returnId);
+  revalidateReturnPaths(receivedOrderId, returnId);
   redirectAdminReturn(returnId, "success", "تم تسجيل استلام المرتجع.");
 }
 export async function refundReturnAction(returnId: string, formData: FormData) {
@@ -390,6 +486,8 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
       refunded_by_admin_id: admin.id,
       refund_method: refundMethod,
       refund_amount_omr: refundAmount,
+      product_refund_omr: productRefundPortion,
+      delivery_fee_refund_omr: deliveryFeeRefundPortion,
       refund_reference: refundReference || null,
       admin_note: adminNote || detail.admin_note
     })
@@ -403,24 +501,29 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
     redirectAdminReturn(returnId, "error", "تعذر تسجيل الاسترداد أو تم تنفيذه مسبقًا.");
   }
 
-  await writeAdminReturnLogs({
-    admin,
-    orderId: data.order_id,
-    returnId,
-    eventType: "order.refunded",
-    auditAction: "refund.create",
-    title: "تسجيل استرداد",
-    description: "تم تسجيل استرداد يدوي للمرتجع.",
-    metadata: {
-      refund_method: refundMethod,
-      product_refund_omr: productRefundPortion,
-      delivery_fee_refund_omr: deliveryFeeRefundPortion,
-      total_refund_omr: refundAmount,
-      refund_amount_omr: refundAmount,
-      include_delivery_fee_in_refund: deliveryFeeRefundPortion > 0,
-      delivery_fee_refund_reason: deliveryFeeRefundPortion > 0 ? "management_exception" : null
-    }
-  });
+  await safeAfterReturnMutation("refundReturnAction.logs", () =>
+    writeAdminReturnLogs({
+      admin,
+      orderId: data.order_id,
+      returnId,
+      eventType: "order.refunded",
+      auditAction: "refund.create",
+      title: "تسجيل استرداد",
+      description: "تم تسجيل استرداد يدوي للمرتجع.",
+      metadata: {
+        resolution_type: detail.resolution_type ?? "refund",
+        return_reason: detail.reason,
+        processed_by: admin.id,
+        refund_method: refundMethod,
+        product_refund_omr: productRefundPortion,
+        delivery_fee_refund_omr: deliveryFeeRefundPortion,
+        total_refund_omr: refundAmount,
+        refund_amount_omr: refundAmount,
+        include_delivery_fee_in_refund: deliveryFeeRefundPortion > 0,
+        delivery_fee_refund_reason: deliveryFeeRefundPortion > 0 ? "management_exception" : null
+      }
+    })
+  );
 
   if (deliveryFeeRefundPortion > 0) {
     const deliveryFeeMetadata = {
@@ -432,32 +535,36 @@ export async function refundReturnAction(returnId: string, formData: FormData) {
       delivery_fee_refund_reason: "management_exception"
     };
 
-    await logReturnOrderEvent({
-      orderId: data.order_id,
-      admin,
-      eventType: "refund.delivery_fee_included",
-      title: "تم تضمين رسوم التوصيل في الاسترداد",
-      description: "تم تضمين رسوم التوصيل في الاسترداد بقرار من إدارة المتجر.",
-      metadata: deliveryFeeMetadata
-    });
+    await safeAfterReturnMutation("refundReturnAction.deliveryFeeLogs", async () => {
+      await logReturnOrderEvent({
+        orderId: data.order_id,
+        admin,
+        eventType: "refund.delivery_fee_included",
+        title: "تم تضمين رسوم التوصيل في الاسترداد",
+        description: "تم تضمين رسوم التوصيل في الاسترداد بقرار من إدارة المتجر.",
+        metadata: deliveryFeeMetadata
+      });
 
-    await logAdminActivity({
-      admin,
-      action: "refund.delivery_fee_included",
-      entityType: "order_return",
-      entityId: returnId,
-      description: "تم تضمين رسوم التوصيل في الاسترداد",
-      metadata: deliveryFeeMetadata
+      await logAdminActivity({
+        admin,
+        action: "refund.delivery_fee_included",
+        entityType: "order_return",
+        entityId: returnId,
+        description: "تم تضمين رسوم التوصيل في الاسترداد",
+        metadata: deliveryFeeMetadata
+      });
     });
   }
 
-  await createCustomerRefundNotification({
-    customerId: detail.customer_id,
-    returnId,
-    orderId: data.order_id,
-    orderNumber: detail.order.order_number,
-    amount: refundAmount
-  });
+  await safeAfterReturnMutation("refundReturnAction.customerNotification", () =>
+    createCustomerRefundNotification({
+      customerId: detail.customer_id,
+      returnId,
+      orderId: data.order_id,
+      orderNumber: detail.order.order_number,
+      amount: refundAmount
+    })
+  );
 
   revalidateReturnPaths(data.order_id, returnId);
   redirectAdminReturn(returnId, "success", "تم تسجيل الاسترداد اليدوي.");
@@ -536,18 +643,202 @@ export async function closeReturnAction(returnId: string, formData: FormData) {
     redirectAdminReturn(returnId, "error", "تعذر إغلاق المرتجع.");
   }
 
-  await writeAdminReturnLogs({
-    admin,
-    orderId: data.order_id,
-    returnId,
-    eventType: "order.return_closed",
-    auditAction: "return.close",
-    title: "إغلاق المرتجع",
-    description: "تم إغلاق المرتجع دون استرداد إضافي."
-  });
+  await safeAfterReturnMutation("closeReturnAction.logs", () =>
+    writeAdminReturnLogs({
+      admin,
+      orderId: data.order_id,
+      returnId,
+      eventType: "order.return_closed",
+      auditAction: "return.close",
+      title: "إغلاق المرتجع",
+      description: "تم إغلاق المرتجع دون استرداد إضافي."
+    })
+  );
 
   revalidateReturnPaths(data.order_id, returnId);
   redirectAdminReturn(returnId, "success", "تم إغلاق المرتجع.");
+}
+
+async function updateReturnItemResolution({
+  admin,
+  orderId,
+  returnId,
+  itemId,
+  condition,
+  returnToStock,
+  replacementProductId,
+  replacementQuantity,
+  replacementStatus,
+  shouldDeductReplacementStock
+}: {
+  admin: AdminProfile;
+  orderId: string;
+  returnId: string;
+  itemId: string;
+  condition: ReturnedItemCondition;
+  returnToStock: boolean;
+  replacementProductId: string | null;
+  replacementQuantity: number;
+  replacementStatus: ReplacementStatus | null;
+  shouldDeductReplacementStock: boolean;
+}) {
+  const supabase = createAdminClient();
+  let replacementStockDeducted = false;
+
+  if (shouldDeductReplacementStock && replacementProductId && replacementQuantity > 0) {
+    const { data: existingItem, error: itemLookupError } = await supabase
+      .from("order_return_items")
+      .select("id,replacement_stock_deducted_at")
+      .eq("id", itemId)
+      .eq("return_id", returnId)
+      .maybeSingle()
+      .returns<Pick<Database["public"]["Tables"]["order_return_items"]["Row"], "id" | "replacement_stock_deducted_at"> | null>();
+
+    if (itemLookupError || !existingItem) {
+      console.error("Failed to read replacement return item", itemLookupError);
+      redirectAdminReturn(returnId, "error", "تعذر قراءة عنصر الاستبدال.");
+    }
+
+    if (!existingItem.replacement_stock_deducted_at) {
+      await deductReplacementStock({
+        admin,
+        orderId,
+        returnId,
+        productId: replacementProductId,
+        quantity: replacementQuantity
+      });
+      replacementStockDeducted = true;
+    }
+  }
+
+  const { error } = await supabase
+    .from("order_return_items")
+    .update({
+      returned_item_condition: condition,
+      return_to_stock: returnToStock,
+      replacement_product_id: replacementProductId,
+      replacement_quantity: replacementQuantity,
+      replacement_status: replacementStatus,
+      replacement_stock_deducted_at: replacementStockDeducted ? new Date().toISOString() : undefined,
+      replacement_stock_deducted_by_admin_id: replacementStockDeducted ? admin.id : undefined
+    } as Database["public"]["Tables"]["order_return_items"]["Update"] as never)
+    .eq("id", itemId)
+    .eq("return_id", returnId);
+
+  if (error) {
+    console.error("Failed to update return item resolution", error);
+    redirectAdminReturn(returnId, "error", "تعذر حفظ معالجة عنصر المرتجع.");
+  }
+
+  return replacementStockDeducted;
+}
+
+async function deductReplacementStock({
+  admin,
+  orderId,
+  returnId,
+  productId,
+  quantity
+}: {
+  admin: AdminProfile;
+  orderId: string;
+  returnId: string;
+  productId: string;
+  quantity: number;
+}) {
+  const supabase = createAdminClient();
+  const { data: product, error: productError } = await supabase
+    .from("products")
+    .select("id,stock_quantity,track_stock")
+    .eq("id", productId)
+    .maybeSingle()
+    .returns<Pick<Database["public"]["Tables"]["products"]["Row"], "id" | "stock_quantity" | "track_stock"> | null>();
+
+  if (productError || !product) {
+    console.error("Failed to read replacement product", productError);
+    redirectAdminReturn(returnId, "error", "تعذر قراءة المنتج البديل.");
+  }
+
+  if (!product.track_stock) {
+    return;
+  }
+
+  if (product.stock_quantity < quantity) {
+    redirectAdminReturn(returnId, "error", "مخزون المنتج البديل غير كاف.");
+  }
+
+  const stockBefore = product.stock_quantity;
+  const stockAfter = stockBefore - quantity;
+  const { error: stockError } = await supabase
+    .from("products")
+    .update({ stock_quantity: stockAfter } as never)
+    .eq("id", productId);
+
+  if (stockError) {
+    console.error("Failed to deduct replacement stock", stockError);
+    redirectAdminReturn(returnId, "error", "تعذر خصم مخزون المنتج البديل.");
+  }
+
+  const { error: movementError } = await supabase.from("inventory_movements").insert({
+    product_id: productId,
+    order_id: orderId,
+    return_id: returnId,
+    admin_id: admin.id,
+    movement_type: "adjustment",
+    quantity_change: -quantity,
+    stock_before: stockBefore,
+    stock_after: stockAfter,
+    reason: "إرسال منتج بديل",
+    notes: `خصم منتج بديل للمرتجع ${returnId}`
+  } as Database["public"]["Tables"]["inventory_movements"]["Insert"] as never);
+
+  if (movementError) {
+    console.error("Failed to write replacement inventory movement", movementError);
+  }
+}
+
+async function safeAfterReturnMutation(label: string, callback: () => Promise<void>) {
+  try {
+    await callback();
+  } catch (error) {
+    console.error(label, error);
+  }
+}
+
+function normalizeResolutionType(value: FormDataEntryValue | null, returnType: OrderReturnType): ReturnResolutionType {
+  const normalized = String(value ?? "");
+
+  if (resolutionTypes.includes(normalized as ReturnResolutionType)) {
+    return normalized as ReturnResolutionType;
+  }
+
+  return returnType === "exchange" ? "replacement_same_product" : "refund";
+}
+
+function normalizeReturnedItemCondition(value: FormDataEntryValue | null): ReturnedItemCondition {
+  const normalized = String(value ?? "");
+  return returnedItemConditions.includes(normalized as ReturnedItemCondition)
+    ? (normalized as ReturnedItemCondition)
+    : "sellable";
+}
+
+function normalizeReplacementStatus(value: FormDataEntryValue | null): ReplacementStatus {
+  const normalized = String(value ?? "");
+  return replacementStatuses.includes(normalized as ReplacementStatus)
+    ? (normalized as ReplacementStatus)
+    : "pending";
+}
+
+function normalizeReplacementQuantity(value: FormDataEntryValue | null, fallback: number) {
+  const parsed = Number.parseInt(String(value ?? ""), 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : fallback;
+}
+
+function normalizeNullableUuid(value: FormDataEntryValue | null) {
+  const normalized = String(value ?? "").trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(normalized)
+    ? normalized
+    : null;
 }
 
 async function writeAdminReturnLogs({

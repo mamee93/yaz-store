@@ -87,7 +87,7 @@ const orderSelect =
   "id,order_number,customer_id,status,subtotal_omr,discount_omr,delivery_fee_omr,total_omr,customer_name_snapshot,customer_phone_snapshot,completed_at,updated_at,created_at,order_items(id,product_id,product_name_ar_snapshot,product_name_en_snapshot,sku_snapshot,unit_price_omr,quantity,line_total_omr,product_image_url_snapshot)";
 
 const returnSelect =
-  "id,order_id,customer_id,status,return_type,reason,customer_note,admin_note,requested_at,approved_at,rejected_at,received_at,refunded_at,customer_refund_confirmed_at,approved_by_admin_id,rejected_by_admin_id,received_by_admin_id,refunded_by_admin_id,refund_method,refund_amount_omr,refund_reference,created_at,updated_at";
+  "id,order_id,customer_id,status,return_type,resolution_type,reason,customer_note,admin_note,requested_at,approved_at,rejected_at,received_at,refunded_at,customer_refund_confirmed_at,approved_by_admin_id,rejected_by_admin_id,received_by_admin_id,refunded_by_admin_id,refund_method,refund_amount_omr,product_refund_omr,delivery_fee_refund_omr,refund_reference,created_at,updated_at";
 
 export async function getCustomerReturnOrder(orderId: string) {
   const customerIds = await getCurrentCustomerIds();
@@ -364,7 +364,7 @@ async function getReturnDetailById(returnId: string, includeAdminNote: boolean) 
       supabase
         .from("order_return_items")
         .select(
-          "id,return_id,order_item_id,quantity,unit_refund_omr,line_refund_omr,return_to_stock,created_at"
+          "id,return_id,order_item_id,quantity,unit_refund_omr,line_refund_omr,return_to_stock,returned_item_condition,replacement_product_id,replacement_quantity,replacement_status,replacement_stock_deducted_at,replacement_stock_deducted_by_admin_id,created_at"
         )
         .eq("return_id", returnId)
         .returns<OrderReturnItemRow[]>()

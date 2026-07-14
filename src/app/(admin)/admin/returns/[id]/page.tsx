@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, PackageCheck, ReceiptText, XCircle } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
-import { Badge, Button, Card, Input, Price, Select, Textarea } from "@/components/ui";
+import { ReturnActionSubmitButton } from "@/components/admin/return-action-submit-button";
+import { Badge, Card, Input, Price, Select, Textarea } from "@/components/ui";
 import { requireAdmin } from "@/features/auth/queries";
 import {
   approveReturnAction,
@@ -13,7 +14,10 @@ import {
 } from "@/features/returns/actions";
 import {
   getReturnStatusVariant,
+  replacementStatusLabels,
   refundMethodLabels,
+  returnedItemConditionLabels,
+  returnResolutionTypeLabels,
   returnStatusLabels,
   returnTypeLabels
 } from "@/features/returns/labels";
@@ -42,12 +46,13 @@ export default async function AdminReturnDetailPage({
   const canReceive = ["owner", "manager", "cashier"].includes(admin.role) && returnRequest.status === "approved";
   const canRefund =
     (admin.role === "owner" || admin.role === "manager") &&
+    (returnRequest.resolution_type === null || returnRequest.resolution_type === "refund") &&
     (returnRequest.status === "received" ||
       (returnRequest.status === "approved" && returnRequest.return_type === "refund_only"));
   const canClose =
     (admin.role === "owner" || admin.role === "manager") &&
     returnRequest.status === "received" &&
-    returnRequest.return_type === "exchange";
+    returnRequest.resolution_type !== "refund";
   const productRefundSummary = calculateRefundableAmount({
     productRefundOmr: returnRequest.expected_refund_omr,
     deliveryFeeOmr: returnRequest.order.delivery_fee_omr,
@@ -96,6 +101,14 @@ export default async function AdminReturnDetailPage({
               <Info label="العميل" value={returnRequest.customer_name} />
               <Info label="الهاتف" value={returnRequest.customer_phone} dir="ltr" />
               <Info label="النوع" value={returnTypeLabels[returnRequest.return_type]} />
+              <Info
+                label="نوع المعالجة"
+                value={
+                  returnRequest.resolution_type
+                    ? returnResolutionTypeLabels[returnRequest.resolution_type]
+                    : "لم يحدد بعد"
+                }
+              />
               <Info label="السبب" value={returnRequest.reason} />
               <Info label="تاريخ الطلب" value={formatDate(returnRequest.requested_at)} />
               <Info label="المبلغ المتوقع" value={`${returnRequest.expected_refund_omr.toFixed(3)} ر.ع`} dir="ltr" />
@@ -117,6 +130,7 @@ export default async function AdminReturnDetailPage({
             ) : null}
           </Card>
 
+          {returnRequest.resolution_type === null || returnRequest.resolution_type === "refund" ? (
           <Card className="p-5 shadow-none">
             <h2 className="font-display text-2xl font-bold text-oud-brown">تفاصيل مبلغ الاسترداد</h2>
             <p className="mt-1 text-sm leading-7 text-oud-muted">
@@ -147,6 +161,7 @@ export default async function AdminReturnDetailPage({
               <Info label="رسوم التوصيل مشمولة؟" value={deliveryFeeRefunded > 0 ? "نعم" : "لا"} />
             </div>
           </Card>
+          ) : null}
 
           <Card className="overflow-hidden shadow-none">
             <div className="border-b border-oud-brown/10 p-5">
@@ -162,6 +177,15 @@ export default async function AdminReturnDetailPage({
                     <p className="mt-1 text-sm text-oud-muted">
                       الكمية: {item.quantity} | إرجاع للمخزون: {item.return_to_stock ? "نعم" : "لا"}
                     </p>
+                    <p className="mt-1 text-sm text-oud-muted">
+                      حالة القطعة: {returnedItemConditionLabels[item.returned_item_condition]}
+                    </p>
+                    {item.replacement_product_id ? (
+                      <p className="mt-1 text-sm text-oud-muted">
+                        المنتج البديل: <span dir="ltr">{item.replacement_product_id}</span> | الكمية: {item.replacement_quantity} | الحالة:{" "}
+                        {item.replacement_status ? replacementStatusLabels[item.replacement_status] : "بانتظار الإرسال"}
+                      </p>
+                    ) : null}
                   </div>
                   <Price value={item.line_refund_omr} />
                 </div>
@@ -186,16 +210,61 @@ export default async function AdminReturnDetailPage({
             <Card className="space-y-3 p-5 shadow-none">
               <h2 className="font-display text-xl font-bold text-oud-brown">المراجعة</h2>
               <form action={approveReturnAction.bind(null, returnRequest.id)} className="space-y-3">
+                <Select name="resolution_type" label="نوع المعالجة" required defaultValue={getDefaultResolutionType(returnRequest.return_type)}>
+                  {Object.entries(returnResolutionTypeLabels).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </Select>
+                <div className="space-y-3 rounded-oud border border-oud-brown/10 bg-oud-beige/20 p-3">
+                  <p className="text-sm font-semibold text-oud-brown">حالة القطع والبدائل</p>
+                  {returnRequest.items.map((item) => {
+                    const replacementProductId = item.order_item?.product_id ?? "";
+
+                    return (
+                      <div key={item.id} className="rounded-oud border border-oud-brown/10 bg-white p-3">
+                        <p className="text-sm font-semibold text-oud-brown">
+                          {item.order_item?.product_name_ar_snapshot ?? "منتج"}
+                        </p>
+                        <div className="mt-3 grid gap-3">
+                          <Select name={`condition_${item.id}`} label="حالة القطعة المرتجعة" defaultValue="sellable" required>
+                            {Object.entries(returnedItemConditionLabels).map(([value, label]) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </Select>
+                          <Input
+                            name={`replacement_product_id_${item.id}`}
+                            label="معرّف المنتج البديل"
+                            defaultValue={replacementProductId}
+                            dir="ltr"
+                          />
+                          <Input
+                            name={`replacement_quantity_${item.id}`}
+                            label="كمية البديل"
+                            type="number"
+                            min="0"
+                            defaultValue={item.quantity}
+                            dir="ltr"
+                          />
+                          <Select name={`replacement_status_${item.id}`} label="حالة إرسال البديل" defaultValue="pending">
+                            {Object.entries(replacementStatusLabels).map(([value, label]) => (
+                              <option key={value} value={value}>{label}</option>
+                            ))}
+                          </Select>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
                 <Textarea name="admin_note" label="ملاحظة داخلية اختيارية" />
-                <Button type="submit" className="w-full" leftIcon={<CheckCircle2 className="size-4" />}>
+                <ReturnActionSubmitButton className="w-full" leftIcon={<CheckCircle2 className="size-4" />}>
                   اعتماد
-                </Button>
+                </ReturnActionSubmitButton>
               </form>
               <form action={rejectReturnAction.bind(null, returnRequest.id)} className="space-y-3">
                 <Textarea name="admin_note" label="سبب الرفض" required />
-                <Button type="submit" variant="danger" className="w-full" leftIcon={<XCircle className="size-4" />}>
+                <ReturnActionSubmitButton variant="danger" className="w-full" leftIcon={<XCircle className="size-4" />}>
                   رفض
-                </Button>
+                </ReturnActionSubmitButton>
               </form>
             </Card>
           ) : null}
@@ -207,9 +276,9 @@ export default async function AdminReturnDetailPage({
                 سيتم إرجاع العناصر المحددة إلى المخزون مرة واحدة فقط عند نجاح العملية.
               </p>
               <form action={receiveReturnAction.bind(null, returnRequest.id)}>
-                <Button type="submit" className="w-full" leftIcon={<PackageCheck className="size-4" />}>
+                <ReturnActionSubmitButton className="w-full" leftIcon={<PackageCheck className="size-4" />}>
                   تسجيل الاستلام
-                </Button>
+                </ReturnActionSubmitButton>
               </form>
             </Card>
           ) : null}
@@ -249,9 +318,9 @@ export default async function AdminReturnDetailPage({
                 </label>
                 <Input name="refund_reference" label="مرجع الاسترداد" dir="ltr" />
                 <Textarea name="admin_note" label="ملاحظة داخلية" />
-                <Button type="submit" className="w-full" leftIcon={<ReceiptText className="size-4" />}>
+                <ReturnActionSubmitButton className="w-full" leftIcon={<ReceiptText className="size-4" />}>
                   تسجيل استرداد يدوي
-                </Button>
+                </ReturnActionSubmitButton>
               </form>
             </Card>
           ) : null}
@@ -261,9 +330,9 @@ export default async function AdminReturnDetailPage({
               <h2 className="font-display text-xl font-bold text-oud-brown">إغلاق الاستبدال</h2>
               <form action={closeReturnAction.bind(null, returnRequest.id)} className="space-y-3">
                 <Textarea name="admin_note" label="ملاحظة الإغلاق" />
-                <Button type="submit" variant="secondary" className="w-full">
+                <ReturnActionSubmitButton variant="secondary" className="w-full">
                   إغلاق بدون استرداد
-                </Button>
+                </ReturnActionSubmitButton>
               </form>
             </Card>
           ) : null}
@@ -315,4 +384,8 @@ function formatDate(value: string) {
     dateStyle: "medium",
     timeStyle: "short"
   }).format(new Date(value));
+}
+
+function getDefaultResolutionType(returnType: string) {
+  return returnType === "exchange" ? "replacement_same_product" : "refund";
 }
